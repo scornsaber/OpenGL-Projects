@@ -28,7 +28,7 @@ Animation:
   Total fall time ~2.8 s, smooth and constant.
 */
 
-// ---------------- Canvas & Colors ----------------
+// --- Canvas & Colors ---
 #define canvas_Width 600
 #define canvas_Height 600
 char canvas_Name[] = "CS 445 – Meteor & Car";
@@ -38,7 +38,7 @@ static const GLfloat BRAND_R = 44.0f / 255.0f;
 static const GLfloat BRAND_G = 42.0f / 255.0f;
 static const GLfloat BRAND_B = 41.0f / 255.0f;
 
-// ---------------- Scene Geometry ----------------
+// --- Scene Geometry ---
 static const GLfloat CAR_BODY_W = 222.0f;
 static const GLfloat CAR_BODY_H = 48.0f;
 static const GLfloat CAR_CABIN_W = 102.0f;
@@ -53,20 +53,19 @@ static const GLfloat Z_PLANE = -10.0f;
 // Meteor geometry
 static const GLfloat METEOR_SIDE = 24.0f;
 static const GLfloat METEOR_HALF_DIAG = METEOR_SIDE / std::sqrt(2.0f);
-// Surname Bowen (A–L) → N = 90
 static const GLfloat N_LEFT_TIP_FROM_RIGHT = 90.0f;
 
-// ---------------- Animation Tuning ----------------
+//  Animation Tuning 
 static const unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
 static const GLfloat STEP_PER_TICK = 4.0f;  // units per tick
 
-// ---------------- Global State ----------------
+//  Global State 
 enum AnimState { STOPPED = 0, RUNNING = 1, FINISHED = 2 };
 static AnimState g_state = STOPPED;
 static GLfloat g_mx = 0.0f;
 static GLfloat g_my = 0.0f;
 
-// ------------- Utility: draw a line -------------
+//  Utility: draw a line 
 static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
 {
     glBegin(GL_LINES);
@@ -75,7 +74,7 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
     glEnd();
 }
 
-// ------------- Draw: meteor ---------------------
+//  Draw: meteor 
 static void drawMeteor(GLfloat cx, GLfloat cy)
 {
     const GLfloat d = METEOR_HALF_DIAG;
@@ -90,7 +89,7 @@ static void drawMeteor(GLfloat cx, GLfloat cy)
     line2(cx, botY, leftX, cy);
 }
 
-// ------------- Draw: axis-aligned box -----------
+//  Draw: axis-aligned box 
 static void drawBox(GLfloat x, GLfloat y, GLfloat w, GLfloat h)
 {
     const GLfloat x2 = x + w;
@@ -101,7 +100,7 @@ static void drawBox(GLfloat x, GLfloat y, GLfloat w, GLfloat h)
     line2(x, y2, x, y);
 }
 
-// ------------- Draw: car ------------------------
+//  Draw: car 
 static void drawCar()
 {
     const GLfloat wheelY = WHEEL_BOTTOM_Y;
@@ -128,11 +127,11 @@ static void drawCar()
     drawBox(cabinX, cabinY, CAR_CABIN_W, CAR_CABIN_H);
 }
 
-// ------------- Meteor bounds helpers ------------
+//  Meteor bounds helpers 
 static inline GLfloat meteorTop(GLfloat cy) { return cy + METEOR_HALF_DIAG; }
 static inline GLfloat meteorBottom(GLfloat cy) { return cy - METEOR_HALF_DIAG; }
 
-// ------------- Display callback -----------------
+//  Display callback 
 static void display_func()
 {
     glClearColor(BRAND_R, BRAND_G, BRAND_B, 1.0f);
@@ -147,7 +146,7 @@ static void display_func()
     glFlush(); // single buffering
 }
 
-// ------------- Timer callback -------------------
+//  Timer callback 
 static void timer_func(int /*value*/)
 {
     if (g_state != RUNNING) return;
@@ -167,7 +166,7 @@ static void timer_func(int /*value*/)
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 }
 
-// ------------- Keyboard callback ----------------
+//  Keyboard callback 
 static void keyboard_func(unsigned char /*key*/, int /*x*/, int /*y*/)
 {
     if (g_state == STOPPED) {
@@ -177,7 +176,7 @@ static void keyboard_func(unsigned char /*key*/, int /*x*/, int /*y*/)
     }
 }
 
-// ------------- Init meteor position -------------
+// Init meteor position 
 static void init_meteor_start()
 {
     const GLfloat leftTipX = (GLfloat)canvas_Width - N_LEFT_TIP_FROM_RIGHT;
@@ -185,7 +184,7 @@ static void init_meteor_start()
     g_my = (GLfloat)canvas_Height - METEOR_HALF_DIAG;
 }
 
-// ------------- Main -----------------------------
+//  Main 
 int main(int argc, char **argv)
 {
     std::printf("Any Key Click Will Start\n");
