@@ -31,36 +31,41 @@ Animation:
 // --- Canvas & Colors ---
 #define canvas_Width 600
 #define canvas_Height 600
-char canvas_Name[] = "CS 445 – Meteor & Car";
+char canvas_Name[] = "CS 445 Meteor & Car"; // creative name I know
 
 // Brand black (44,42,41) normalized
-static const GLfloat BRAND_R = 44.0f / 255.0f;
-static const GLfloat BRAND_G = 42.0f / 255.0f;
-static const GLfloat BRAND_B = 41.0f / 255.0f;
+constexpr GLfloat BRAND_R = 44.0f / 255.0f;
+constexpr GLfloat BRAND_G = 42.0f / 255.0f;
+constexpr GLfloat BRAND_B = 41.0f / 255.0f;
 
 // --- Scene Geometry ---
-static const GLfloat CAR_BODY_W = 222.0f;
-static const GLfloat CAR_BODY_H = 48.0f;
-static const GLfloat CAR_CABIN_W = 102.0f;
-static const GLfloat CAR_CABIN_H = 48.0f;
-static const GLfloat WHEEL_SIZE = 30.0f;
-static const GLfloat CAR_LEFT_MARGIN = 50.0f;
-static const GLfloat WHEEL_FRONT_EDGE_TO_BODY_RIGHT = 18.0f;
-static const GLfloat WHEEL_BACK_EDGE_TO_BODY_LEFT = 18.0f;
-static const GLfloat WHEEL_BOTTOM_Y = 0.0f;
-static const GLfloat Z_PLANE = -10.0f;
+constexpr GLfloat CAR_BODY_W = 222.0f;
+constexpr GLfloat CAR_BODY_H = 48.0f;
+constexpr GLfloat CAR_CABIN_W = 102.0f;
+constexpr GLfloat CAR_CABIN_H = 48.0f;
+constexpr GLfloat WHEEL_SIZE = 30.0f;
+constexpr GLfloat CAR_LEFT_MARGIN = 50.0f;
+constexpr GLfloat WHEEL_FRONT_EDGE_TO_BODY_RIGHT = 18.0f;
+constexpr GLfloat WHEEL_BACK_EDGE_TO_BODY_LEFT = 18.0f;
+constexpr GLfloat WHEEL_BOTTOM_Y = 0.0f;
+constexpr GLfloat Z_PLANE = -10.0f;
 
 // Meteor geometry
-static const GLfloat METEOR_SIDE = 24.0f;
-static const GLfloat METEOR_HALF_DIAG = METEOR_SIDE / std::sqrt(2.0f);
-static const GLfloat N_LEFT_TIP_FROM_RIGHT = 90.0f;
+constexpr GLfloat METEOR_SIDE = 24.0f;
+static const GLfloat METEOR_HALF_DIAG = METEOR_SIDE / std::sqrt(2.0f); // In current C++ standard, constexpr cannot call std::sqrt apparently
+constexpr GLfloat N_LEFT_TIP_FROM_RIGHT = 90.0f;
 
 //  Animation Tuning 
-static const unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
-static const GLfloat STEP_PER_TICK = 4.0f;  // units per tick
+constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
+constexpr GLfloat STEP_PER_TICK = 4.0f;  // units per tick
 
 //  Global State 
-enum AnimState { STOPPED = 0, RUNNING = 1, FINISHED = 2 };
+enum AnimState { 
+    STOPPED = 0, 
+    RUNNING = 1, 
+    FINISHED = 2
+};
+
 static AnimState g_state = STOPPED;
 static GLfloat g_mx = 0.0f;
 static GLfloat g_my = 0.0f;
@@ -187,7 +192,7 @@ static void init_meteor_start()
 //  Main 
 int main(int argc, char **argv)
 {
-    std::printf("Any Key Click Will Start\n");
+    std::printf("Any Key Click Will Start\n"); // Because printf is better than cout (Im not oppinionated lol)
 
     glutInit(&argc, argv);
     my_setup(canvas_Width, canvas_Height, canvas_Name);
