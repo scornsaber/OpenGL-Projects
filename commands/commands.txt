@@ -1,0 +1,2 @@
+compile: g++ -Iinclude src/main.cpp -o main.exe -Wall -lGL -lGLU -lglut -lGLEW
+run: ./main.exe
