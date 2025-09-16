@@ -1,7 +1,8 @@
 
-#include "OpenGL445.h"
 #include <GL/glew.h>
 #include <GL/freeglut.h>
+#include "OpenGL445.h"
+
 #include <cstdio>
 #include <cmath>
 
