@@ -1,5 +1,9 @@
 
 #include "OpenGL445.h"
+#include <GL/glew.h>
+#include <GL/freeglut.h>
+#include <cstdio>
+#include <cmath>
 
 // CS 445/545 OpenGL Program skeleton w/line drawing done in
 // display callback display_func() : skeleton-line.cpp
