@@ -8,27 +8,29 @@
 #include "OpenGL445.h"
 
 /*
-ARCHITECTURE STATEMENT (haiku-style, ≤ half page)
+ARCHITECTURE STATEMENT
+Main Idea:
+  To have it based on vertex primitives only, but have to actually type vertex as few times as possible.
+  This is the reason for the line2 utility function, and the drawBox function.
 
-Event-driven flow:
-  GLUT installs callbacks:
+GLUT callbacks:
     - display_func redraws whole scene,
     - keyboard_func flips from STOPPED to RUNNING,
-    - timer_func advances meteor position and re-arms itself.
+    - timer_func advances meteor position and readys itself again.
 
 Data:
-  Global state stores meteor center (x,y), animation flag, constants for car dimensions.
+  Global state stores meteor center (x,y), animation flags, constants for car dimensions.
 
 Render:
-  Each frame clears to brand black (44,42,41), then draws car (boxes) and meteor (diamond).
+  Each frame clears to brand black (44,42,41), then draws car and meteor.
   All objects lie at z = -10.
 
 Animation:
-  Timer period = 20 ms (~50 fps), meteor steps 4 units down each tick.
-  Total fall time ~2.8 s, smooth and constant.
+  Timer period = 20 ms meteor steps 4 units down each tick.
+  Total fall time roughly 3 s.
 */
 
-// --- Canvas & Colors ---
+// Canvas & Colors 
 #define canvas_Width 600
 #define canvas_Height 600
 char canvas_Name[] = "CS 445 Meteor & Car"; // creative name I know
@@ -38,7 +40,7 @@ constexpr GLfloat BRAND_R = 44.0f / 255.0f;
 constexpr GLfloat BRAND_G = 42.0f / 255.0f;
 constexpr GLfloat BRAND_B = 41.0f / 255.0f;
 
-// --- Scene Geometry ---
+// Scene Geometry 
 constexpr GLfloat CAR_BODY_W = 222.0f;
 constexpr GLfloat CAR_BODY_H = 48.0f;
 constexpr GLfloat CAR_CABIN_W = 102.0f;
@@ -122,7 +124,7 @@ static void drawCar()
     const GLfloat frontWheelLeft = frontWheelFront - WHEEL_SIZE;
 
     drawBox(backWheelLeft, wheelY, WHEEL_SIZE, WHEEL_SIZE);
-    drawBox(frontWheelLeft, wheelY, WHEEL_SIZE, WHEEL_SIZE);
+    drawBox(frontWheelLeft, wheelY, WHEEL_SIZE, WHEEL_SIZE); 
 
     drawBox(bodyX, bodyY, CAR_BODY_W, CAR_BODY_H);
 
@@ -133,8 +135,7 @@ static void drawCar()
 }
 
 //  Meteor bounds helpers 
-static inline GLfloat meteorTop(GLfloat cy) { return cy + METEOR_HALF_DIAG; }
-static inline GLfloat meteorBottom(GLfloat cy) { return cy - METEOR_HALF_DIAG; }
+static inline GLfloat meteorAtBottom(GLfloat cy) { return cy - METEOR_HALF_DIAG; }
 
 //  Display callback 
 static void display_func()
@@ -158,8 +159,8 @@ static void timer_func(int /*value*/)
 
     g_my -= STEP_PER_TICK;
 
-    if (meteorBottom(g_my) <= 0.0f) {
-        const GLfloat bottomNow = meteorBottom(g_my);
+    if (meteorAtBottom(g_my) <= 0.0f) { //Break for indirect recursion(if it is technically indirect recursion)
+        const GLfloat bottomNow = meteorAtBottom(g_my);
         g_my -= bottomNow;
         g_state = FINISHED;
         std::puts("Animation FINISHED");
