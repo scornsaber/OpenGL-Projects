@@ -118,7 +118,7 @@ static void drawCar()
     const GLfloat bodyRight = bodyX + CAR_BODY_W;
 
     const GLfloat backWheelRight = bodyX + WHEEL_BACK_EDGE_TO_BODY_LEFT;
-    const GLfloat backWheelLeft = backWheelRight - WHEEL_SIZE;
+    const GLfloat backWheelLeft = backWheelRight /*- WHEEL_SIZE*/;
 
     const GLfloat frontWheelFront = bodyRight - WHEEL_FRONT_EDGE_TO_BODY_RIGHT;
     const GLfloat frontWheelLeft = frontWheelFront - WHEEL_SIZE;
