@@ -5,28 +5,24 @@
 #include <cmath>
 #include <GL/glew.h>
 #include <GL/freeglut.h>
-#include "OpenGL445.h"
-
+#include "OpenGL445Setup-2025.h"
 /*
 ARCHITECTURE STATEMENT
 Main Idea:
-  To have it based on vertex primitives only, but have to actually type vertex as few times as possible.
-  This is the reason for the line2 utility function, and the drawBox function.
-
+  Instead of relying on drawing each object at desired position each frame,
+  I use glTranslatef to move the origin to the desired position and draw
+  each object at the origin. This made it much more enjoyable to code.
 GLUT callbacks:
     - display_func redraws whole scene,
     - keyboard_func flips from STOPPED to RUNNING,
     - timer_func advances meteor position and readys itself again.
-
 Data:
   Global state stores meteor center (x,y), animation flags, constants for car dimensions.
-
 Render:
   Each frame clears to brand black (44,42,41), then draws car and meteor.
-  All objects lie at z = -10.
-
+  All objects lie at z = -10 except for meteor at -100.
 Animation:
-  Timer period = 20 ms meteor steps 4 units down each tick.
+  Timer period = 20 ms meteor steps 4 units down each tick and car goes 4 units forward each time j/J is pressed.
   Total fall time roughly 3 s.
 */
 
@@ -54,11 +50,24 @@ constexpr GLfloat WHEEL_SIZE = 30.0f;
 constexpr GLfloat Z_PLANE = -10.0f;
 
 // Meteor geometry
-static int g_meteorList = 0;
+static GLuint g_meteorList = 0;
 constexpr GLfloat METEOR_SIDE = 24.0f;
 static const GLfloat METEOR_HALF_DIAG = METEOR_SIDE / std::sqrt(2.0f); // In current C++ standard, constexpr cannot call std::sqrt apparently
-constexpr GLfloat N_LEFT_TIP_FROM_RIGHT = 90.0f;
+constexpr GLfloat N_LEFT_TIP_FROM_RIGHT = 100.0f;
 constexpr GLfloat METEOR_RADIUS = METEOR_SIDE;;
+
+// Car start position
+constexpr GLfloat CAR_START_X = 161.0f;
+constexpr GLfloat CAR_START_Y = 54.0f;
+
+constexpr GLfloat LEFFT_WHEEL_X_OFFSET = -78.0f;
+constexpr GLfloat RIGHT_WHEEL_X_OFFSET = 78.0f;
+constexpr GLfloat WHEEL_Y_OFFSET = -39.0f;
+
+constexpr GLfloat CAR_TOP_Y_OFFSET = 48.0f;
+
+
+
 
 //  Animation Tuning 
 constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
@@ -96,8 +105,10 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
 //  Draw: meteor 
 static void drawMeteor(GLfloat cx, GLfloat cy)
 {
+    glLoadIdentity();
     glTranslatef(cx, cy, -100.0f);
     glCallList(g_meteorList);
+    glLoadIdentity();
 }
 
 //  Draw: axis-aligned box a centered at orgin
@@ -113,19 +124,19 @@ static void drawBox(GLfloat length, GLfloat height)
 static void drawCar(GLfloat cx, GLfloat cy)
 {
 
-    //left wheel
-    glLoadIdentity(); 
-    glTranslatef(cx+88, cy-39, 0.0f);
+    //right wheel
+    glLoadIdentity(); // I went a little overboard with the loadidentity calls to isolate a bug I was tracking down
+    glTranslatef(cx+RIGHT_WHEEL_X_OFFSET, cy+ WHEEL_Y_OFFSET, 0.0f);
     drawBox(WHEEL_SIZE, WHEEL_SIZE);
 
-    //right wheel
+    //left wheel
     glLoadIdentity();
-    glTranslatef(cx-88, cy-39, 0.0f);
+    glTranslatef(cx+LEFFT_WHEEL_X_OFFSET, cy+ WHEEL_Y_OFFSET, 0.0f);
     drawBox(WHEEL_SIZE, WHEEL_SIZE); 
 
     // top box
     glLoadIdentity();
-    glTranslatef(cx, cy+48, 0.0f);
+    glTranslatef(cx, cy+CAR_TOP_Y_OFFSET, 0.0f);
     drawBox(CAR_CABIN_W, CAR_CABIN_H);
 
     //body box
@@ -138,7 +149,20 @@ static void drawCar(GLfloat cx, GLfloat cy)
 }
 
 //  Meteor bounds helpers 
-static inline GLfloat meteorAtBottom(GLfloat cy) { return cy - METEOR_HALF_DIAG; }
+static inline GLfloat meteorAtBottom(GLfloat cy) { return cy - METEOR_SIDE; }
+
+//  Utility: draw a bitmap string centered at (cx,cy) on Z_PLANE
+static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloat cy)
+{
+    int w = 0; 
+    for (const char* p = s; *p; ++p){
+        w += glutBitmapWidth(font, *p);
+    }
+    glRasterPos3f(cx - w*0.5f, cy, Z_PLANE);
+    for (const char* p = s; *p; ++p) {
+        glutBitmapCharacter(font, *p);
+    }
+}
 
 //  Display callback 
 static void display_func()
@@ -154,6 +178,11 @@ static void display_func()
     glColor3f(PUMPKIN_R, PUMPKIN_G, PUMPKIN_B);
 
     drawMeteor(mx, my);
+
+    if (g_state == STOPPED) {
+        glColor3f(1.0f, 1.0f, 1.0f);
+        drawBitmapStringCenter("Any Key Click Will Start", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
+    }
 
     glFlush(); // single buffering
 }
@@ -202,22 +231,23 @@ static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 // Init meteor position 
 static void init_meteor_start()
 {
-    const GLfloat leftTipX = (GLfloat)canvas_Width - N_LEFT_TIP_FROM_RIGHT;
-    mx = leftTipX + METEOR_HALF_DIAG;
-    my = (GLfloat)canvas_Height - METEOR_HALF_DIAG;
+    my = (GLfloat)canvas_Height - METEOR_SIDE;
+    const GLfloat N = N_LEFT_TIP_FROM_RIGHT; // 100
+    mx = (GLfloat)canvas_Width - N + METEOR_SIDE;
 }
 
 // Init car position 
 static void init_car_start()
 {
-    cx = 161.0f;
-    cy = 54.0f;
+    cx = CAR_START_X;
+    cy = CAR_START_Y;
 }
+
+
 
 //  Main 
 int main(int argc, char **argv)
 {
-    std::printf("Any Key Click Will Start\n"); // Because printf is better than cout (Im not oppinionated lol)
 
     glutInit(&argc, argv);
     my_setup(canvas_Width, canvas_Height, canvas_Name);
