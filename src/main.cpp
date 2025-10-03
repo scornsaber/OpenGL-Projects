@@ -14,7 +14,7 @@ Main Idea:
   each object at the origin. This made it much more enjoyable to code.
 GLUT callbacks:
     - display_func redraws whole scene,
-    - keyboard_func flips from STOPPED to RUNNING,
+    - keyboard_func flips from READY to RUNNING,
     - timer_func advances meteor position and readys itself again.
 Data:
   Global state stores meteor center (x,y), animation flags, constants for car dimensions.
@@ -72,12 +72,12 @@ constexpr GLfloat STEP_PER_TICK = 4.0f;  // units per tick
 
 //  Global State 
 enum AnimState { 
-    STOPPED = 0, 
+    READY = 0, 
     RUNNING = 1, 
     FINISHED = 2
 };
 
-static AnimState g_state = STOPPED;
+static AnimState g_state = READY;
 static GLfloat mx = 0.0f;
 static GLfloat my = 0.0f;
 
@@ -174,7 +174,7 @@ static void display_func()
 
     drawMeteor(mx, my);
 
-    if (g_state == STOPPED) {
+    if (g_state == READY) {
         glColor3f(1.0f, 1.0f, 1.0f);
         drawBitmapStringCenter("Any Key Click Will Start", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
     }
@@ -205,7 +205,7 @@ static void timer_func(int /*value*/)
 //  Keyboard callback 
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
-    if (g_state == STOPPED) {
+    if (g_state == READY) {
         g_state = RUNNING;
         std::puts("Key pressed -> animation RUNNING");
         if (key == 'j' || key == 'J') {
