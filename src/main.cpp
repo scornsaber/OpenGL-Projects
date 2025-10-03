@@ -1,4 +1,4 @@
-// Graphics Pgm 1 for Caleb Bowen
+// Graphics Pgm 2 for Caleb Bowen
 // File: meteor_car_445.cpp
 
 #include <cstdio>
@@ -40,26 +40,31 @@ constexpr GLfloat BRAND_R = 44.0f / 255.0f;
 constexpr GLfloat BRAND_G = 42.0f / 255.0f;
 constexpr GLfloat BRAND_B = 41.0f / 255.0f;
 
+// Pumpkin orange (255,117,24) normalized
+constexpr GLfloat PUMPKIN_R = 255.0f / 255.0f;
+constexpr GLfloat PUMPKIN_G = 117.0f / 255.0f;
+constexpr GLfloat PUMPKIN_B = 24.0f / 255.0f;
+
 // Scene Geometry 
 constexpr GLfloat CAR_BODY_W = 222.0f;
 constexpr GLfloat CAR_BODY_H = 48.0f;
 constexpr GLfloat CAR_CABIN_W = 102.0f;
 constexpr GLfloat CAR_CABIN_H = 48.0f;
 constexpr GLfloat WHEEL_SIZE = 30.0f;
-constexpr GLfloat CAR_LEFT_MARGIN = 50.0f;
-constexpr GLfloat WHEEL_FRONT_EDGE_TO_BODY_RIGHT = 18.0f;
-constexpr GLfloat WHEEL_BACK_EDGE_TO_BODY_LEFT = 18.0f;
-constexpr GLfloat WHEEL_BOTTOM_Y = 0.0f;
 constexpr GLfloat Z_PLANE = -10.0f;
 
 // Meteor geometry
+static int g_meteorList = 0;
 constexpr GLfloat METEOR_SIDE = 24.0f;
 static const GLfloat METEOR_HALF_DIAG = METEOR_SIDE / std::sqrt(2.0f); // In current C++ standard, constexpr cannot call std::sqrt apparently
 constexpr GLfloat N_LEFT_TIP_FROM_RIGHT = 90.0f;
+constexpr GLfloat METEOR_RADIUS = METEOR_SIDE;;
 
 //  Animation Tuning 
 constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
 constexpr GLfloat STEP_PER_TICK = 4.0f;  // units per tick
+
+
 
 //  Global State 
 enum AnimState { 
@@ -69,8 +74,12 @@ enum AnimState {
 };
 
 static AnimState g_state = STOPPED;
-static GLfloat g_mx = 0.0f;
-static GLfloat g_my = 0.0f;
+static GLfloat mx = 0.0f;
+static GLfloat my = 0.0f;
+
+static GLfloat cx = 0.0f;
+static GLfloat cy = 0.0f;
+//static GLfloat carOffsetX = 0.0f;
 
 //  Utility: draw a line 
 static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
@@ -81,57 +90,51 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
     glEnd();
 }
 
+// Displaylist for meteor
+
+
 //  Draw: meteor 
 static void drawMeteor(GLfloat cx, GLfloat cy)
 {
-    const GLfloat d = METEOR_HALF_DIAG;
-    const GLfloat leftX = cx - d;
-    const GLfloat rightX = cx + d;
-    const GLfloat topY = cy + d;
-    const GLfloat botY = cy - d;
-
-    line2(leftX, cy, cx, topY);
-    line2(cx, topY, rightX, cy);
-    line2(rightX, cy, cx, botY);
-    line2(cx, botY, leftX, cy);
+    glTranslatef(cx, cy, -100.0f);
+    glCallList(g_meteorList);
 }
 
-//  Draw: axis-aligned box 
-static void drawBox(GLfloat x, GLfloat y, GLfloat w, GLfloat h)
+//  Draw: axis-aligned box a centered at orgin
+static void drawBox(GLfloat length, GLfloat height)
 {
-    const GLfloat x2 = x + w;
-    const GLfloat y2 = y + h;
-    line2(x, y, x2, y);
-    line2(x2, y, x2, y2);
-    line2(x2, y2, x, y2);
-    line2(x, y2, x, y);
+    line2(-length/2, -height/2, length/2, -height/2);
+    line2(-length/2, -height/2, -length/2, height/2);
+    line2(-length/2, height/2, length/2, height/2);
+    line2(length/2, height/2, length/2, -height/2);
 }
 
-//  Draw: car 
-static void drawCar()
+//  Draw: car based on center (cx,cy) of the car body
+static void drawCar(GLfloat cx, GLfloat cy)
 {
-    const GLfloat wheelY = WHEEL_BOTTOM_Y;
-    const GLfloat wheelTopY = wheelY + WHEEL_SIZE;
 
-    const GLfloat bodyX = CAR_LEFT_MARGIN;
-    const GLfloat bodyY = wheelTopY;
-    const GLfloat bodyRight = bodyX + CAR_BODY_W;
+    //left wheel
+    glLoadIdentity(); 
+    glTranslatef(cx+88, cy-39, 0.0f);
+    drawBox(WHEEL_SIZE, WHEEL_SIZE);
 
-    const GLfloat backWheelRight = bodyX + WHEEL_BACK_EDGE_TO_BODY_LEFT;
-    const GLfloat backWheelLeft = backWheelRight /*- WHEEL_SIZE*/;
+    //right wheel
+    glLoadIdentity();
+    glTranslatef(cx-88, cy-39, 0.0f);
+    drawBox(WHEEL_SIZE, WHEEL_SIZE); 
 
-    const GLfloat frontWheelFront = bodyRight - WHEEL_FRONT_EDGE_TO_BODY_RIGHT;
-    const GLfloat frontWheelLeft = frontWheelFront - WHEEL_SIZE;
+    // top box
+    glLoadIdentity();
+    glTranslatef(cx, cy+48, 0.0f);
+    drawBox(CAR_CABIN_W, CAR_CABIN_H);
 
-    drawBox(backWheelLeft, wheelY, WHEEL_SIZE, WHEEL_SIZE);
-    drawBox(frontWheelLeft, wheelY, WHEEL_SIZE, WHEEL_SIZE); 
+    //body box
+    glLoadIdentity();
+    glTranslatef(cx, cy, 0.0f);
+    drawBox(CAR_BODY_W, CAR_BODY_H);
 
-    drawBox(bodyX, bodyY, CAR_BODY_W, CAR_BODY_H);
-
-    const GLfloat bodyCenterX = bodyX + CAR_BODY_W * 0.5f;
-    const GLfloat cabinX = bodyCenterX - (CAR_CABIN_W * 0.5f);
-    const GLfloat cabinY = bodyY + CAR_BODY_H;
-    drawBox(cabinX, cabinY, CAR_CABIN_W, CAR_CABIN_H);
+    glLoadIdentity();
+    
 }
 
 //  Meteor bounds helpers 
@@ -146,8 +149,11 @@ static void display_func()
     glLoadIdentity();
     glColor3f(1.0f, 1.0f, 1.0f);
 
-    drawCar();
-    drawMeteor(g_mx, g_my);
+    drawCar(cx, cy);
+
+    glColor3f(PUMPKIN_R, PUMPKIN_G, PUMPKIN_B);
+
+    drawMeteor(mx, my);
 
     glFlush(); // single buffering
 }
@@ -157,11 +163,11 @@ static void timer_func(int /*value*/)
 {
     if (g_state != RUNNING) return;
 
-    g_my -= STEP_PER_TICK;
+    my -= STEP_PER_TICK;
 
-    if (meteorAtBottom(g_my) <= 0.0f) { //Break for indirect recursion(if it is technically indirect recursion)
-        const GLfloat bottomNow = meteorAtBottom(g_my);
-        g_my -= bottomNow;
+    if (meteorAtBottom(my) <= 0.0f) { //Break for indirect recursion(if it is technically indirect recursion)
+        const GLfloat bottomNow = meteorAtBottom(my);
+        my -= bottomNow;
         g_state = FINISHED;
         std::puts("Animation FINISHED");
         glutPostRedisplay();
@@ -173,12 +179,23 @@ static void timer_func(int /*value*/)
 }
 
 //  Keyboard callback 
-static void keyboard_func(unsigned char /*key*/, int /*x*/, int /*y*/)
+static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
     if (g_state == STOPPED) {
         g_state = RUNNING;
         std::puts("Key pressed -> animation RUNNING");
+        if (key == 'j' || key == 'J') {
+        //    cx += STEP_PER_TICK;
+        }
         glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
+        return;
+    }
+
+    if (g_state == RUNNING) {
+        if (key == 'j' || key == 'J') {
+            cx += STEP_PER_TICK; // move car right by 4 units per press
+            glutPostRedisplay();
+        }
     }
 }
 
@@ -186,8 +203,15 @@ static void keyboard_func(unsigned char /*key*/, int /*x*/, int /*y*/)
 static void init_meteor_start()
 {
     const GLfloat leftTipX = (GLfloat)canvas_Width - N_LEFT_TIP_FROM_RIGHT;
-    g_mx = leftTipX + METEOR_HALF_DIAG;
-    g_my = (GLfloat)canvas_Height - METEOR_HALF_DIAG;
+    mx = leftTipX + METEOR_HALF_DIAG;
+    my = (GLfloat)canvas_Height - METEOR_HALF_DIAG;
+}
+
+// Init car position 
+static void init_car_start()
+{
+    cx = 161.0f;
+    cy = 54.0f;
 }
 
 //  Main 
@@ -198,7 +222,18 @@ int main(int argc, char **argv)
     glutInit(&argc, argv);
     my_setup(canvas_Width, canvas_Height, canvas_Name);
 
+    // Create meteor display list
+    g_meteorList = glGenLists(1);
+    glNewList(g_meteorList, GL_COMPILE);
+        glPushMatrix();
+        glScalef(METEOR_RADIUS, METEOR_RADIUS, METEOR_RADIUS);
+        glutWireOctahedron();   
+        glPopMatrix();
+    glEndList();
+
     init_meteor_start();
+
+    init_car_start();
 
     glutDisplayFunc(display_func);
     glutKeyboardFunc(keyboard_func);
