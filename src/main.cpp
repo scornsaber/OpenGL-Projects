@@ -66,14 +66,9 @@ constexpr GLfloat WHEEL_Y_OFFSET = -39.0f;
 
 constexpr GLfloat CAR_TOP_Y_OFFSET = 48.0f;
 
-
-
-
 //  Animation Tuning 
 constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
 constexpr GLfloat STEP_PER_TICK = 4.0f;  // units per tick
-
-
 
 //  Global State 
 enum AnimState { 
