@@ -164,34 +164,6 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
     }
 }
 
-// Display callback 
-//  Render the whole scene
-//  Clear to brand black, draw car and meteor
-//  If in READY state, draw "Any Key Click Will Start" message
-//  Single buffering
-
-static void display_func()
-{
-    glClearColor(BRAND_R, BRAND_G, BRAND_B, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
-    glLoadIdentity();
-    glColor3f(1.0f, 1.0f, 1.0f);
-
-    drawCar(cx, cy);
-
-    glColor3f(PUMPKIN_R, PUMPKIN_G, PUMPKIN_B);
-
-    drawMeteor(mx, my);
-
-    if (g_state == READY) {
-        glColor3f(1.0f, 1.0f, 1.0f);
-        drawBitmapStringCenter("Any Key Click Will Start", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
-    }
-
-    glFlush(); // single buffering
-}
-
 //  Timer callback 
 // Mecahnism: if in RUNNING state, move meteor down by STEP_PER_TICK
 // If meteor bottom <= 0, set state to FINISHED and return
@@ -214,6 +186,40 @@ static void timer_func(int /*value*/)
     glutPostRedisplay();
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 }
+
+// Display callback 
+//  Render the whole scene
+//  Clear to brand black, draw car and meteor
+//  If in READY state, draw "Any Key Click Will Start" message
+//  Single buffering
+
+static void display_func()
+{
+    glClearColor(BRAND_R, BRAND_G, BRAND_B, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    if (g_state == READY) {
+        glColor3f(1.0f, 1.0f, 1.0f);
+        drawBitmapStringCenter("Any Key Click Will Start", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
+        glFlush();
+        return;
+    }
+
+    glLoadIdentity();
+    glColor3f(1.0f, 1.0f, 1.0f);
+
+    drawCar(cx, cy);
+
+    glColor3f(PUMPKIN_R, PUMPKIN_G, PUMPKIN_B);
+
+    drawMeteor(mx, my);
+
+    
+
+    glFlush(); // single buffering
+}
+
+
 
 //  Keyboard callback 
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
