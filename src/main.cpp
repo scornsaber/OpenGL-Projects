@@ -281,7 +281,7 @@ int main(int argc, char **argv)
 
     glutDisplayFunc(display_func);
     glutKeyboardFunc(keyboard_func);
-    glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
+    //glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 
     glutMainLoop();
     return 0;
