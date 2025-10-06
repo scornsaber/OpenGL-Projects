@@ -18,8 +18,13 @@ GLUT callbacks:
     - timer_func advances meteor position and readys itself again.
 Data:
   Global state stores meteor center (x,y), animation flags, constants for car dimensions.
+  Callbacks read and update global state as needed.
+  Displaylist for meteor.
 Render:
   Each frame clears to brand black (44,42,41), then draws car and meteor.
+  Drawing is done by translating to the desired position and drawing each object at the origin.
+  Car is drawn with 3 boxes and 2 wheels.
+  Meteor is drawn with a displaylist of a scaled wire octahedron.
   All objects lie at z = -10 except for meteor at -100.
 Animation:
   Timer period = 20 ms meteor steps 4 units down each tick and car goes 4 units forward each time j/J is pressed.
@@ -159,7 +164,12 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
     }
 }
 
-//  Display callback 
+// Display callback 
+//  Render the whole scene
+//  Clear to brand black, draw car and meteor
+//  If in READY state, draw "Any Key Click Will Start" message
+//  Single buffering
+
 static void display_func()
 {
     glClearColor(BRAND_R, BRAND_G, BRAND_B, 1.0f);
@@ -183,6 +193,9 @@ static void display_func()
 }
 
 //  Timer callback 
+// Mecahnism: if in RUNNING state, move meteor down by STEP_PER_TICK
+// If meteor bottom <= 0, set state to FINISHED and return
+// Otherwise, post redisplay and reset timer
 static void timer_func(int /*value*/)
 {
     if (g_state != RUNNING) return;
@@ -247,7 +260,7 @@ int main(int argc, char **argv)
     glutInit(&argc, argv);
     my_setup(canvas_Width, canvas_Height, canvas_Name);
 
-    // Create meteor display list
+    // Create meteor display list using a scaled wire octahedron
     g_meteorList = glGenLists(1);
     glNewList(g_meteorList, GL_COMPILE);
         glPushMatrix();
