@@ -47,29 +47,19 @@ constexpr GLfloat PUMPKIN_G = 117.0f / 255.0f;
 constexpr GLfloat PUMPKIN_B = 24.0f / 255.0f;
 
 // Scene Geometry 
-constexpr GLfloat CAR_BODY_W = 222.0f;
-constexpr GLfloat CAR_BODY_H = 48.0f;
-constexpr GLfloat CAR_CABIN_W = 102.0f;
-constexpr GLfloat CAR_CABIN_H = 48.0f;
-constexpr GLfloat WHEEL_SIZE = 30.0f;
-constexpr GLfloat Z_PLANE = -10.0f;
+constexpr GLfloat Z_PLANE = -100.0f;
 
 // Meteor geometry
-static GLuint g_meteorList = 0;
-constexpr GLfloat METEOR_SIDE = 24.0f;
-static const GLfloat METEOR_HALF_DIAG = METEOR_SIDE / std::sqrt(2.0f); // In current C++ standard, constexpr cannot call std::sqrt apparently
-constexpr GLfloat N_LEFT_TIP_FROM_RIGHT = 100.0f;
-constexpr GLfloat METEOR_RADIUS = METEOR_SIDE;;
 
 // Car start position
-constexpr GLfloat CAR_START_X = 161.0f;
-constexpr GLfloat CAR_START_Y = 54.0f;
 
-constexpr GLfloat LEFFT_WHEEL_X_OFFSET = -78.0f;
-constexpr GLfloat RIGHT_WHEEL_X_OFFSET = 78.0f;
-constexpr GLfloat WHEEL_Y_OFFSET = -39.0f;
+// Projectile constants
+constexpr GLfloat GRAVITY = 32.0f; // ft/s^2
+constexpr int DIAMOND_COUNT = 0;
+constexpr int TEAPOT_COUNT = 0;
 
-constexpr GLfloat CAR_TOP_Y_OFFSET = 48.0f;
+
+
 
 //  Animation Tuning 
 constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
@@ -82,12 +72,23 @@ enum AnimState {
     FINISHED = 2
 };
 
+
+enum DiamondState { 
+    D_CHOSEN = 0, 
+    D_FALLING = 1, 
+    D_DEAD = 2,
+    D_HIT = 3
+};
+
 static AnimState g_state = READY;
 static GLfloat mx = 0.0f;
 static GLfloat my = 0.0f;
 
 static GLfloat cx = 0.0f;
-static GLfloat cy = 0.0f;
+static GLfloat cy = 455.0f;
+
+
+static GLint projectileCount = 6;
 //static GLfloat carOffsetX = 0.0f;
 
 //  Utility: draw a line 
@@ -101,15 +102,47 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
 
 // Displaylist for meteor
 
+// Projectiles
 
-//  Draw: meteor 
-static void drawMeteor(GLfloat cx, GLfloat cy)
+static void drawTeapot(GLfloat cx, GLfloat cy)
 {
+    //projectileCount--;
     glLoadIdentity();
     glTranslatef(cx, cy, -100.0f);
-    glCallList(g_meteorList);
+    
+    glutWireTeapot(20.0f);
     glLoadIdentity();
 }
+
+static void drawDiamond(GLfloat cx, GLfloat cy)
+{
+    //projectileCount--;
+    glLoadIdentity();
+    glTranslatef(cx, cy, -100.0f);
+    glScalef(2.0, 2.0, 2.0);
+    glutWireOctahedron();
+    glLoadIdentity();
+}
+
+static void drawPlatform()
+{
+    glLoadIdentity();
+    glTranslatef(0, 450, -50.0f);
+    line2(0, 0, 50, 0);
+    glLoadIdentity();
+}
+
+static void drawTower()
+{
+    glLoadIdentity();
+    line2(440, 0, 540, 0);
+    line2(440, 200, 540, 200);
+    line2(440, 0, 440, 200);
+    line2(540, 0, 540, 200);
+    glLoadIdentity();
+}
+
+
 
 //  Draw: axis-aligned box a centered at orgin
 static void drawBox(GLfloat length, GLfloat height)
@@ -120,36 +153,8 @@ static void drawBox(GLfloat length, GLfloat height)
     line2(length/2, height/2, length/2, -height/2);
 }
 
-//  Draw: car based on center (cx,cy) of the car body
-static void drawCar(GLfloat cx, GLfloat cy)
-{
 
-    //right wheel
-    glLoadIdentity(); // I went a little overboard with the loadidentity calls to isolate a bug I was tracking down
-    glTranslatef(cx+RIGHT_WHEEL_X_OFFSET, cy+ WHEEL_Y_OFFSET, 0.0f);
-    drawBox(WHEEL_SIZE, WHEEL_SIZE);
-
-    //left wheel
-    glLoadIdentity();
-    glTranslatef(cx+LEFFT_WHEEL_X_OFFSET, cy+ WHEEL_Y_OFFSET, 0.0f);
-    drawBox(WHEEL_SIZE, WHEEL_SIZE); 
-
-    // top box
-    glLoadIdentity();
-    glTranslatef(cx, cy+CAR_TOP_Y_OFFSET, 0.0f);
-    drawBox(CAR_CABIN_W, CAR_CABIN_H);
-
-    //body box
-    glLoadIdentity();
-    glTranslatef(cx, cy, 0.0f);
-    drawBox(CAR_BODY_W, CAR_BODY_H);
-
-    glLoadIdentity();
-    
-}
-
-//  Meteor bounds helpers 
-static inline GLfloat meteorAtBottom(GLfloat cy) { return cy - METEOR_SIDE; }
+//static inline GLfloat meteorAtBottom(GLfloat cy) { return cy - METEOR_SIDE; }
 
 //  Utility: draw a bitmap string centered at (cx,cy) on Z_PLANE
 static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloat cy)
@@ -164,6 +169,14 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
     }
 }
 
+static bool teapotTowerHit(GLfloat cx, GLfloat cy){
+    return;
+}
+
+static bool diamondTowerHit(GLfloat cx, GLfloat cy){
+    return false;
+}
+
 //  Timer callback 
 // Mecahnism: if in RUNNING state, move meteor down by STEP_PER_TICK
 // If meteor bottom <= 0, set state to FINISHED and return
@@ -172,16 +185,16 @@ static void timer_func(int /*value*/)
 {
     if (g_state != RUNNING) return;
 
-    my -= STEP_PER_TICK;
+    //my -= STEP_PER_TICK;
 
-    if (meteorAtBottom(my) <= 0.0f) { //Break for indirect recursion(if it is technically indirect recursion)
+    /*if (meteorAtBottom(my) <= 0.0f) { //Break for indirect recursion(if it is technically indirect recursion)
         const GLfloat bottomNow = meteorAtBottom(my);
         my -= bottomNow;
         g_state = FINISHED;
         std::puts("Animation FINISHED");
         glutPostRedisplay();
         return;
-    }
+    }*/
 
     glutPostRedisplay();
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
@@ -208,11 +221,18 @@ static void display_func()
     glLoadIdentity();
     glColor3f(1.0f, 1.0f, 1.0f);
 
-    drawCar(cx, cy);
+    //drawCar(cx, cy);
 
     glColor3f(PUMPKIN_R, PUMPKIN_G, PUMPKIN_B);
 
-    drawMeteor(mx, my);
+    drawPlatform();
+
+    drawTower();
+
+
+    
+
+    //drawMeteor(mx, my);
 
     
 
@@ -227,34 +247,19 @@ static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
     if (g_state == READY) {
         g_state = RUNNING;
         std::puts("Key pressed -> animation RUNNING");
-        if (key == 'j' || key == 'J') {
+        //if (key == 'm' || key == 'M' || key == 'e' || key == 'E') {
         //    cx += STEP_PER_TICK;
-        }
+        //}
         glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
         return;
     }
 
-    if (g_state == RUNNING) {
-        if (key == 'j' || key == 'J') {
-            cx += STEP_PER_TICK; // move car right by 4 units per press
-            glutPostRedisplay();
-        }
-    }
+    glutPostRedisplay();
+    
 }
 
-// Init meteor position 
-static void init_meteor_start()
-{
-    my = (GLfloat)canvas_Height - METEOR_SIDE;
-    const GLfloat N = N_LEFT_TIP_FROM_RIGHT; // 100
-    mx = (GLfloat)canvas_Width - N + METEOR_SIDE;
-}
+static bool projectileCheckandSwitch(){
 
-// Init car position 
-static void init_car_start()
-{
-    cx = CAR_START_X;
-    cy = CAR_START_Y;
 }
 
 
@@ -267,18 +272,7 @@ int main(int argc, char **argv)
     my_setup(canvas_Width, canvas_Height, canvas_Name);
 
     // Create meteor display list using a scaled wire octahedron
-    g_meteorList = glGenLists(1);
-    glNewList(g_meteorList, GL_COMPILE);
-        glPushMatrix();
-        glScalef(METEOR_RADIUS, METEOR_RADIUS, METEOR_RADIUS);
-        glutWireOctahedron();   
-        glPopMatrix();
-    glEndList();
-
-    init_meteor_start();
-
-    init_car_start();
-
+    
     glutDisplayFunc(display_func);
     glutKeyboardFunc(keyboard_func);
     //glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
