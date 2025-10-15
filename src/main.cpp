@@ -84,7 +84,7 @@ static AnimState g_state = READY;
 static GLfloat cx = 25.0f;
 static GLfloat cy = 455.0f;
 
-static ProjectileState current_projectile = TEAPOT;
+static ProjectileState current_projectile = DIAMONDS;
 
 
 static GLint projectileCount = 6;
@@ -176,19 +176,27 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
     }
 }
 
-static bool TowerHit(GLfloat cx, GLfloat cy){
-    return false;
-}
-
-static bool WaterHit(GLfloat cx, GLfloat cy) {
-    if((cy+20) <= 7){
-        g_state == FINISHED;
+static bool towerHit(GLfloat cx, GLfloat cy){
+    if((cy-20) <= 200 && (440 <= (cx+20) <= 440)){ // pick up here
+        g_state = FINISHED;
         return true;
     }
     return false;
 }
 
-static bool RightHit(GLfloat cx, GLfloat cy) {
+static bool waterHit(GLfloat cx, GLfloat cy) {
+    if((cy-20) <= 7){
+        g_state = FINISHED;
+        return true;
+    }
+    return false;
+}
+
+static bool rightHit(GLfloat cx, GLfloat cy) {
+    if((cx+20) >= 600){
+        g_state = FINISHED;
+        return true;
+    }
     return false;
 }
 
@@ -212,13 +220,25 @@ static void timer_func(int /*value*/)
         return;
     }*/
 
-    if(WaterHit(cx, cy) == true){
+    if(waterHit(cx, cy) == true){
         std::puts("Animation FINISHED");
         glutPostRedisplay();
         return;
     }
 
-    cy = cy - 32 * 0.2;
+    if(towerHit(cx, cy)){
+        std::puts("You win");
+        glutPostRedisplay();
+        return;
+    }
+
+    if(rightHit(cx, cy)){
+        std::puts("Animation FINISHED");
+        glutPostRedisplay();
+        return;
+    }
+
+    cy = cy - 32 * 0.02;
     glutPostRedisplay();
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 }
@@ -288,11 +308,11 @@ static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
         return;
     }
 
-    if (key == 'm' || key == 'M') {
+    if ((key == 'm' || key == 'M') && g_state != FINISHED) {
         cx += STEP_PER_TICK;
     }
 
-    if (key == 'e' || key == 'E') {
+    if ((key == 'e' || key == 'E') && g_state != FINISHED) {
         cx -= STEP_PER_TICK;
     }
     glutPostRedisplay();
