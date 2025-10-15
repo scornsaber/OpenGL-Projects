@@ -166,7 +166,7 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
 
 static bool towerHit(GLfloat cx, GLfloat cy){
     if((cy-20) <= 200 && cx >= 420 && cx <= 560){ // pick up here
-        g_state = FINISHED;
+        //g_state = FINISHED;
         return true;
     }
     return false;
@@ -174,7 +174,7 @@ static bool towerHit(GLfloat cx, GLfloat cy){
 
 static bool waterHit(GLfloat cx, GLfloat cy) {
     if((cy-20) <= 7){
-        g_state = FINISHED;
+        //g_state = FINISHED;
         return true;
     }
     return false;
@@ -183,12 +183,21 @@ static bool waterHit(GLfloat cx, GLfloat cy) {
 static bool rightHit(GLfloat cx, GLfloat cy) {
     if((cx+20) >= 600){
         
-        g_state = FINISHED;
+        //g_state = FINISHED;
         return true;
     }
     return false;
 }
 
+
+// Declared so signature is there
+static void timer_func(int /*value*/);
+
+static void cooldown_ready(int) {
+    g_state = RUNNING;  // after 1s, allow user to start the next shot
+    glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
+    glutPostRedisplay();
+}
 
 //  Timer callback 
 // Mecahnism: if in RUNNING state, move meteor down by STEP_PER_TICK
@@ -196,14 +205,21 @@ static bool rightHit(GLfloat cx, GLfloat cy) {
 // Otherwise, post redisplay and reset timer
 static void timer_func(int /*value*/)
 {
-    if (g_state != RUNNING && g_state != NEXT_PROJECTILE) return;
+    if (g_state != RUNNING) return;
     
     if(waterHit(cx, cy) == true){
-        std::puts("Animation FINISHED");
+        std::puts("Water");
+        if(projectileCount <= 0){
+            g_state = FINISHED;
+            std::puts("Ran");
+            glutPostRedisplay();
+            return;
+        }
         if(projectileCount > 0){
             g_state = NEXT_PROJECTILE;
             cx = 25.0f;
             cy = 450.0f;
+            glutTimerFunc(1000, cooldown_ready, 0);
         }
         if(projectileCount <= 3){
             current_projectile = TEAPOT;
@@ -215,10 +231,16 @@ static void timer_func(int /*value*/)
 
     if(towerHit(cx, cy)){
         std::puts("You win");
+        if(projectileCount <= 0){
+            g_state = FINISHED;
+            glutPostRedisplay();
+            return;
+        }
         if(projectileCount > 0){
             g_state = NEXT_PROJECTILE;
             cx = 25.0f;
             cy = 450.0f;
+            glutTimerFunc(1000, cooldown_ready, 0);
         }
         if(projectileCount <= 3){
             current_projectile = TEAPOT;
@@ -229,11 +251,17 @@ static void timer_func(int /*value*/)
     }
 
     if(rightHit(cx, cy)){
-        std::puts("Animation FINISHED");
+        std::puts("Right wall");
+        if(projectileCount <= 0){
+            g_state = FINISHED;
+            glutPostRedisplay();
+            return;
+        }
         if(projectileCount > 0){
             g_state = NEXT_PROJECTILE;
             cx = 25.0f;
             cy = 450.0f;
+            glutTimerFunc(1000, cooldown_ready, 0);
         }
         if(projectileCount <= 3){
             current_projectile = TEAPOT;
@@ -243,10 +271,12 @@ static void timer_func(int /*value*/)
         return;
     }
 
-    cy = cy - 32 * 0.02;
+    cy = cy - 32 * 0.2;
     glutPostRedisplay();
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 }
+
+
 
 // Display callback 
 //  Render the whole scene
@@ -266,12 +296,6 @@ static void display_func()
         return;
     }
 
-    if (g_state == NEXT_PROJECTILE) {
-        glColor3f(1.0f, 1.0f, 1.0f);
-        drawBitmapStringCenter("Press m or e to shoot", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
-        glFlush();
-        return;
-    }
 
     glLoadIdentity();
     glColor3f(1.0f, 1.0f, 1.0f);
@@ -292,15 +316,7 @@ static void display_func()
     else{
         drawTeapot(cx, cy);
     }
-
-    
-
-
-    
-
-    //drawMeteor(mx, my);
-
-    
+   
 
     glFlush(); // single buffering
 }
@@ -310,7 +326,8 @@ static void display_func()
 //  Keyboard callback 
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
-    if (g_state == READY || g_state == NEXT_PROJECTILE) {
+    
+    if (g_state == READY) {
         g_state = RUNNING;
         std::puts("Key pressed -> animation RUNNING");
         //if (key == 'm' || key == 'M' || key == 'e' || key == 'E') {
@@ -320,11 +337,18 @@ static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
         return;
     }
 
-    if ((key == 'm' || key == 'M') && g_state != FINISHED) {
+    /*if((key == 'x' || key == 'X') && g_state == NEXT_PROJECTILE){
+        g_state = RUNNING;
+        std::puts("Key pressed -> Next Projectile");
+        glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
+        return;
+    }*/
+
+    if ((key == 'm' || key == 'M') && g_state == RUNNING) {
         cx += STEP_PER_TICK;
     }
 
-    if ((key == 'e' || key == 'E') && g_state != FINISHED) {
+    if ((key == 'e' || key == 'E') && g_state == RUNNING) {
         cx -= STEP_PER_TICK;
     }
     glutPostRedisplay();
