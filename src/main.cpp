@@ -57,9 +57,7 @@ constexpr GLfloat Z_PLANE = -100.0f;
 constexpr GLfloat GRAVITY = 32.0f; // ft/s^2
 constexpr int DIAMOND_COUNT = 0;
 constexpr int TEAPOT_COUNT = 0;
-
-
-
+constexpr GLfloat PROJECTILE_RADIUS = 20.0f;
 
 //  Animation Tuning 
 constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
@@ -69,7 +67,8 @@ constexpr GLfloat STEP_PER_TICK = 4.0f;  // units per tick
 enum AnimState { 
     READY = 0, 
     RUNNING = 1, 
-    FINISHED = 2
+    FINISHED = 2,
+    NEXT_PROJECTILE =3
 };
 
 
@@ -87,7 +86,7 @@ static GLfloat cy = 455.0f;
 static ProjectileState current_projectile = DIAMONDS;
 
 
-static GLint projectileCount = 6;
+static GLint projectileCount = 5;
 //static GLfloat carOffsetX = 0.0f;
 
 //  Utility: draw a line 
@@ -109,7 +108,7 @@ static void drawTeapot(GLfloat cx, GLfloat cy)
     glLoadIdentity();
     glTranslatef(cx, cy, -100.0f);
     
-    glutWireTeapot(20.0f);
+    glutWireTeapot(PROJECTILE_RADIUS);
     glLoadIdentity();
 }
 
@@ -118,7 +117,7 @@ static void drawDiamond(GLfloat cx, GLfloat cy)
     //projectileCount--;
     glLoadIdentity();
     glTranslatef(cx, cy, -100.0f);
-    glScalef(20.0, 20.0, 20.0);
+    glScalef(PROJECTILE_RADIUS, PROJECTILE_RADIUS, 0);
     glutWireOctahedron();
     glLoadIdentity();
 }
@@ -150,17 +149,6 @@ static void drawTower()
 }
 
 
-
-//  Draw: axis-aligned box a centered at orgin
-static void drawBox(GLfloat length, GLfloat height)
-{
-    line2(-length/2, -height/2, length/2, -height/2);
-    line2(-length/2, -height/2, -length/2, height/2);
-    line2(-length/2, height/2, length/2, height/2);
-    line2(length/2, height/2, length/2, -height/2);
-}
-
-
 //static inline GLfloat meteorAtBottom(GLfloat cy) { return cy - METEOR_SIDE; }
 
 //  Utility: draw a bitmap string centered at (cx,cy) on Z_PLANE
@@ -177,7 +165,7 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
 }
 
 static bool towerHit(GLfloat cx, GLfloat cy){
-    if((cy-20) <= 200 && (440 <= (cx+20) <= 440)){ // pick up here
+    if((cy-20) <= 200 && cx >= 420 && cx <= 560){ // pick up here
         g_state = FINISHED;
         return true;
     }
@@ -194,6 +182,7 @@ static bool waterHit(GLfloat cx, GLfloat cy) {
 
 static bool rightHit(GLfloat cx, GLfloat cy) {
     if((cx+20) >= 600){
+        
         g_state = FINISHED;
         return true;
     }
@@ -207,33 +196,49 @@ static bool rightHit(GLfloat cx, GLfloat cy) {
 // Otherwise, post redisplay and reset timer
 static void timer_func(int /*value*/)
 {
-    if (g_state != RUNNING) return;
-
-    //my -= STEP_PER_TICK;
-
-    /*if (meteorAtBottom(my) <= 0.0f) { //Break for indirect recursion(if it is technically indirect recursion)
-        const GLfloat bottomNow = meteorAtBottom(my);
-        my -= bottomNow;
-        g_state = FINISHED;
-        std::puts("Animation FINISHED");
-        glutPostRedisplay();
-        return;
-    }*/
-
+    if (g_state != RUNNING && g_state != NEXT_PROJECTILE) return;
+    
     if(waterHit(cx, cy) == true){
         std::puts("Animation FINISHED");
+        if(projectileCount > 0){
+            g_state = NEXT_PROJECTILE;
+            cx = 25.0f;
+            cy = 450.0f;
+        }
+        if(projectileCount <= 3){
+            current_projectile = TEAPOT;
+        }
+        projectileCount--;
         glutPostRedisplay();
         return;
     }
 
     if(towerHit(cx, cy)){
         std::puts("You win");
+        if(projectileCount > 0){
+            g_state = NEXT_PROJECTILE;
+            cx = 25.0f;
+            cy = 450.0f;
+        }
+        if(projectileCount <= 3){
+            current_projectile = TEAPOT;
+        }
+        projectileCount--;
         glutPostRedisplay();
         return;
     }
 
     if(rightHit(cx, cy)){
         std::puts("Animation FINISHED");
+        if(projectileCount > 0){
+            g_state = NEXT_PROJECTILE;
+            cx = 25.0f;
+            cy = 450.0f;
+        }
+        if(projectileCount <= 3){
+            current_projectile = TEAPOT;
+        }
+        projectileCount--;
         glutPostRedisplay();
         return;
     }
@@ -257,6 +262,13 @@ static void display_func()
     if (g_state == READY) {
         glColor3f(1.0f, 1.0f, 1.0f);
         drawBitmapStringCenter("Any Key Click Will Start", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
+        glFlush();
+        return;
+    }
+
+    if (g_state == NEXT_PROJECTILE) {
+        glColor3f(1.0f, 1.0f, 1.0f);
+        drawBitmapStringCenter("Press m or e to shoot", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
         glFlush();
         return;
     }
@@ -298,7 +310,7 @@ static void display_func()
 //  Keyboard callback 
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
-    if (g_state == READY) {
+    if (g_state == READY || g_state == NEXT_PROJECTILE) {
         g_state = RUNNING;
         std::puts("Key pressed -> animation RUNNING");
         //if (key == 'm' || key == 'M' || key == 'e' || key == 'E') {
@@ -319,9 +331,6 @@ static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
     
 }
 
-static bool projectileCheckandSwitch(){
-
-}
 
 
 
