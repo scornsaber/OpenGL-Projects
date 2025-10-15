@@ -73,19 +73,18 @@ enum AnimState {
 };
 
 
-enum DiamondState { 
-    D_CHOSEN = 0, 
-    D_FALLING = 1, 
-    D_DEAD = 2,
-    D_HIT = 3
+enum ProjectileState { 
+    DIAMONDS = 0, 
+    TEAPOT = 1
 };
 
 static AnimState g_state = READY;
-static GLfloat mx = 0.0f;
-static GLfloat my = 0.0f;
 
-static GLfloat cx = 0.0f;
+
+static GLfloat cx = 25.0f;
 static GLfloat cy = 455.0f;
+
+static ProjectileState current_projectile = TEAPOT;
 
 
 static GLint projectileCount = 6;
@@ -119,7 +118,7 @@ static void drawDiamond(GLfloat cx, GLfloat cy)
     //projectileCount--;
     glLoadIdentity();
     glTranslatef(cx, cy, -100.0f);
-    glScalef(2.0, 2.0, 2.0);
+    glScalef(20.0, 20.0, 20.0);
     glutWireOctahedron();
     glLoadIdentity();
 }
@@ -127,8 +126,16 @@ static void drawDiamond(GLfloat cx, GLfloat cy)
 static void drawPlatform()
 {
     glLoadIdentity();
-    glTranslatef(0, 450, -50.0f);
+    glTranslatef(0, 450, 0.0f);
     line2(0, 0, 50, 0);
+    glLoadIdentity();
+}
+
+static void drawWater()
+{
+    glLoadIdentity();
+    //glTranslatef(0, 450, 0.0f);
+    line2(0, 7, 700, 7);
     glLoadIdentity();
 }
 
@@ -169,13 +176,22 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
     }
 }
 
-static bool teapotTowerHit(GLfloat cx, GLfloat cy){
-    return;
-}
-
-static bool diamondTowerHit(GLfloat cx, GLfloat cy){
+static bool TowerHit(GLfloat cx, GLfloat cy){
     return false;
 }
+
+static bool WaterHit(GLfloat cx, GLfloat cy) {
+    if((cy+20) <= 7){
+        g_state == FINISHED;
+        return true;
+    }
+    return false;
+}
+
+static bool RightHit(GLfloat cx, GLfloat cy) {
+    return false;
+}
+
 
 //  Timer callback 
 // Mecahnism: if in RUNNING state, move meteor down by STEP_PER_TICK
@@ -196,6 +212,13 @@ static void timer_func(int /*value*/)
         return;
     }*/
 
+    if(WaterHit(cx, cy) == true){
+        std::puts("Animation FINISHED");
+        glutPostRedisplay();
+        return;
+    }
+
+    cy = cy - 32 * 0.2;
     glutPostRedisplay();
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 }
@@ -225,9 +248,20 @@ static void display_func()
 
     glColor3f(PUMPKIN_R, PUMPKIN_G, PUMPKIN_B);
 
+    drawWater();
+
     drawPlatform();
 
     drawTower();
+
+    if(current_projectile == DIAMONDS){
+        drawDiamond(cx, cy);
+    }
+    else{
+        drawTeapot(cx, cy);
+    }
+
+    
 
 
     
@@ -254,6 +288,13 @@ static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
         return;
     }
 
+    if (key == 'm' || key == 'M') {
+        cx += STEP_PER_TICK;
+    }
+
+    if (key == 'e' || key == 'E') {
+        cx -= STEP_PER_TICK;
+    }
     glutPostRedisplay();
     
 }
