@@ -9,13 +9,21 @@
 /*
 ARCHITECTURE STATEMENT
 Main Idea:
-  Instead of relying on drawing each object at desired position each frame,
-  I use glTranslatef to move the origin to the desired position and draw
-  each object at the origin. This made it much more enjoyable to code.
+  Render a simple “toss at the tower” scene using MODELVIEW transforms.
+  Every frame, clear the canvas and redraw the scene from current state.
+  Projectiles are positioned/oriented via glTranslatef / glScalef, never by
+  drawing at absolute coordinates directly.
 GLUT callbacks:
-    - display_func redraws whole scene,
-    - keyboard_func flips from READY to RUNNING,
-    - timer_func advances meteor position and readys itself again.
+    - display_func: draws the entire scene each frame (full redraw; no trails).
+  - keyboard_func:
+      * In READY: pressing M or E selects gravity and starts the simulation.
+      * In RUNNING: H or J nudges the projectile left or right by 4 units and
+        also launches it so gravity begins to act.
+  - timer_func: advances animation at about 20 Hz (re-armed each tick). While
+    RUNNING and after the first H or J press (launched == true), applies gravity
+    to the projectile vertical motion using a constant-acceleration update.
+  - cooldown_ready: one-shot timer that fires 1 second after a projectile
+    ends; spawns the next projectile on the pad and resumes RUNNING.
 Data:
   Global state stores meteor center (x,y), animation flags, constants for car dimensions.
   Callbacks read and update global state as needed.
@@ -75,7 +83,7 @@ static AnimState g_state = READY;
 
 
 static GLfloat cx = 25.0f;
-static GLfloat cy = 455.0f;
+static GLfloat cy = 450.0f + PROJECTILE_RADIUS;
 
 static ProjectileState current_projectile = DIAMONDS;
 
@@ -235,7 +243,7 @@ static void timer_func(int /*value*/)
         if(projectileCount > 0){
             g_state = NEXT_PROJECTILE;
             cx = 25.0f;
-            cy = 450.0f;
+            cy = 450.0f + PROJECTILE_RADIUS;
             v = 0;
             launched = false;
             glutTimerFunc(1000, cooldown_ready, 0);
@@ -281,7 +289,7 @@ static void timer_func(int /*value*/)
         if(projectileCount > 0){
             g_state = NEXT_PROJECTILE;
             cx = 25.0f;
-            cy = 450.0f;
+            cy = 450.0f + PROJECTILE_RADIUS;
             v = 0;
             launched = false;
             glutTimerFunc(1000, cooldown_ready, 0);
