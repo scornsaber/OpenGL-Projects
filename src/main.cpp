@@ -41,23 +41,17 @@ constexpr GLfloat BRAND_R = 44.0f / 255.0f;
 constexpr GLfloat BRAND_G = 42.0f / 255.0f;
 constexpr GLfloat BRAND_B = 41.0f / 255.0f;
 
-// Pumpkin orange (255,117,24) normalized
-constexpr GLfloat PUMPKIN_R = 255.0f / 255.0f;
-constexpr GLfloat PUMPKIN_G = 117.0f / 255.0f;
-constexpr GLfloat PUMPKIN_B = 24.0f / 255.0f;
 
 // Scene Geometry 
-constexpr GLfloat Z_PLANE = -100.0f;
-
-// Meteor geometry
-
-// Car start position
+constexpr GLfloat Z_PLANE = -50.0f;
 
 // Projectile constants
-constexpr GLfloat GRAVITY = 32.0f; // ft/s^2
+
 constexpr int DIAMOND_COUNT = 0;
 constexpr int TEAPOT_COUNT = 0;
 constexpr GLfloat PROJECTILE_RADIUS = 20.0f;
+
+constexpr GLfloat PROJECTILE_Z = -50.0f;
 
 //  Animation Tuning 
 constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
@@ -85,8 +79,17 @@ static GLfloat cy = 455.0f;
 
 static ProjectileState current_projectile = DIAMONDS;
 
+static GLfloat dt = 0.02f;
+static GLfloat v = 0;
 
-static GLint projectileCount = 5;
+static GLfloat gravity = 32;
+
+static bool tower_hit = false;
+
+static bool launched = false;
+
+
+static GLint projectileCount = 3;
 //static GLfloat carOffsetX = 0.0f;
 
 //  Utility: draw a line 
@@ -106,7 +109,7 @@ static void drawTeapot(GLfloat cx, GLfloat cy)
 {
     //projectileCount--;
     glLoadIdentity();
-    glTranslatef(cx, cy, -100.0f);
+    glTranslatef(cx, cy, PROJECTILE_Z);
     
     glutWireTeapot(PROJECTILE_RADIUS);
     glLoadIdentity();
@@ -116,8 +119,8 @@ static void drawDiamond(GLfloat cx, GLfloat cy)
 {
     //projectileCount--;
     glLoadIdentity();
-    glTranslatef(cx, cy, -100.0f);
-    glScalef(PROJECTILE_RADIUS, PROJECTILE_RADIUS, 0);
+    glTranslatef(cx, cy, PROJECTILE_Z);
+    glScalef(PROJECTILE_RADIUS, PROJECTILE_RADIUS, PROJECTILE_RADIUS);
     glutWireOctahedron();
     glLoadIdentity();
 }
@@ -125,7 +128,7 @@ static void drawDiamond(GLfloat cx, GLfloat cy)
 static void drawPlatform()
 {
     glLoadIdentity();
-    glTranslatef(0, 450, 0.0f);
+    glTranslatef(0, 450, 0);
     line2(0, 0, 50, 0);
     glLoadIdentity();
 }
@@ -149,7 +152,13 @@ static void drawTower()
 }
 
 
-//static inline GLfloat meteorAtBottom(GLfloat cy) { return cy - METEOR_SIDE; }
+// Advance position & velocity by timestep dt (seconds). Returns new y.
+inline float stepY(float& y, float& v, float dt) {
+    y += v * dt + 0.5f * -gravity * dt * dt;  // new position
+    v += -gravity * dt;                        // new velocity
+    return y;
+}
+
 
 //  Utility: draw a bitmap string centered at (cx,cy) on Z_PLANE
 static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloat cy)
@@ -193,6 +202,8 @@ static bool rightHit(GLfloat cx, GLfloat cy) {
 // Declared so signature is there
 static void timer_func(int /*value*/);
 
+
+// Projectile cannot move for 1 sec after generation
 static void cooldown_ready(int) {
     g_state = RUNNING;  // after 1s, allow user to start the next shot
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
@@ -206,6 +217,12 @@ static void cooldown_ready(int) {
 static void timer_func(int /*value*/)
 {
     if (g_state != RUNNING) return;
+
+    if (!launched) {
+    glutPostRedisplay();
+    glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0); // keep ticking, but no fall yet
+    return;
+}
     
     if(waterHit(cx, cy) == true){
         std::puts("Water");
@@ -219,9 +236,11 @@ static void timer_func(int /*value*/)
             g_state = NEXT_PROJECTILE;
             cx = 25.0f;
             cy = 450.0f;
+            v = 0;
+            launched = false;
             glutTimerFunc(1000, cooldown_ready, 0);
         }
-        if(projectileCount <= 3){
+        if(projectileCount <= 1){
             current_projectile = TEAPOT;
         }
         projectileCount--;
@@ -231,7 +250,9 @@ static void timer_func(int /*value*/)
 
     if(towerHit(cx, cy)){
         std::puts("You win");
-        if(projectileCount <= 0){
+        g_state = FINISHED;
+        tower_hit = true;
+        /*if(projectileCount <= 0){
             g_state = FINISHED;
             glutPostRedisplay();
             return;
@@ -241,8 +262,8 @@ static void timer_func(int /*value*/)
             cx = 25.0f;
             cy = 450.0f;
             glutTimerFunc(1000, cooldown_ready, 0);
-        }
-        if(projectileCount <= 3){
+        }*/
+        if(projectileCount <= 1){
             current_projectile = TEAPOT;
         }
         projectileCount--;
@@ -261,9 +282,11 @@ static void timer_func(int /*value*/)
             g_state = NEXT_PROJECTILE;
             cx = 25.0f;
             cy = 450.0f;
+            v = 0;
+            launched = false;
             glutTimerFunc(1000, cooldown_ready, 0);
         }
-        if(projectileCount <= 3){
+        if(projectileCount <= 1){
             current_projectile = TEAPOT;
         }
         projectileCount--;
@@ -271,7 +294,7 @@ static void timer_func(int /*value*/)
         return;
     }
 
-    cy = cy - 32 * 0.2;
+    cy = stepY(cy, v, dt); // Apply acceleration
     glutPostRedisplay();
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 }
@@ -291,26 +314,37 @@ static void display_func()
 
     if (g_state == READY) {
         glColor3f(1.0f, 1.0f, 1.0f);
-        drawBitmapStringCenter("Any Key Click Will Start", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
+        drawBitmapStringCenter("Press e for Earth's gravity and m for Ganymede's ", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
+        glFlush();
+        return;
+    }
+
+    if (g_state == FINISHED && tower_hit == true) {
+        glColor3f(1.0f, 1.0f, 1.0f);
+        drawBitmapStringCenter("You Win!", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
         glFlush();
         return;
     }
 
 
     glLoadIdentity();
-    glColor3f(1.0f, 1.0f, 1.0f);
+    
 
     //drawCar(cx, cy);
 
-    glColor3f(PUMPKIN_R, PUMPKIN_G, PUMPKIN_B);
+    glColor3f(0.0f, 1.0f, 1.0f);
+
 
     drawWater();
 
-    drawPlatform();
-
+    glColor3f(1.0f, 0.0f, 0.0f);
     drawTower();
 
+    drawPlatform();
+
+    glColor3f(0.0f, 1.0f, 0.0f);
     if(current_projectile == DIAMONDS){
+        
         drawDiamond(cx, cy);
     }
     else{
@@ -327,12 +361,15 @@ static void display_func()
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
     
-    if (g_state == READY) {
+    if (g_state == READY && (key == 'm' || key == 'M' || key == 'e' || key == 'E')) {
         g_state = RUNNING;
         std::puts("Key pressed -> animation RUNNING");
-        //if (key == 'm' || key == 'M' || key == 'e' || key == 'E') {
-        //    cx += STEP_PER_TICK;
-        //}
+        if(key == 'M' || key == 'm'){
+            gravity = 4.7;
+        }
+        else{
+            gravity = 32;
+        }
         glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
         return;
     }
@@ -344,12 +381,14 @@ static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
         return;
     }*/
 
-    if ((key == 'm' || key == 'M') && g_state == RUNNING) {
+    if ((key == 'j' || key == 'J') && g_state == RUNNING) {
         cx += STEP_PER_TICK;
+        launched = true;
     }
 
-    if ((key == 'e' || key == 'E') && g_state == RUNNING) {
+    if ((key == 'h' || key == 'H') && g_state == RUNNING) {
         cx -= STEP_PER_TICK;
+        launched = true;
     }
     glutPostRedisplay();
     
