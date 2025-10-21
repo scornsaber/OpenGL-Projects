@@ -96,6 +96,8 @@ static bool tower_hit = false;
 
 static bool launched = false;
 
+static bool visible = true;
+
 
 static GLint projectileCount = 3;
 //static GLfloat carOffsetX = 0.0f;
@@ -213,6 +215,7 @@ static void timer_func(int /*value*/);
 
 // Projectile cannot move for 1 sec after generation
 static void cooldown_ready(int) {
+    visible = true;
     g_state = RUNNING;  // after 1s, allow user to start the next shot
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
     glutPostRedisplay();
@@ -246,6 +249,7 @@ static void timer_func(int /*value*/)
             cy = 450.0f + PROJECTILE_RADIUS;
             v = 0;
             launched = false;
+            visible = false;
             glutTimerFunc(1000, cooldown_ready, 0);
         }
         if(projectileCount <= 1){
@@ -292,6 +296,7 @@ static void timer_func(int /*value*/)
             cy = 450.0f + PROJECTILE_RADIUS;
             v = 0;
             launched = false;
+            visible = false;
             glutTimerFunc(1000, cooldown_ready, 0);
         }
         if(projectileCount <= 1){
@@ -351,11 +356,11 @@ static void display_func()
     drawPlatform();
 
     glColor3f(0.0f, 1.0f, 0.0f);
-    if(current_projectile == DIAMONDS){
+    if(current_projectile == DIAMONDS && visible == true){
         
         drawDiamond(cx, cy);
     }
-    else{
+    else if(visible == true){
         drawTeapot(cx, cy);
     }
    
