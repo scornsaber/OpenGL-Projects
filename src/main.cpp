@@ -1,5 +1,5 @@
 // Graphics Pgm 2 for Caleb Bowen
-// File: meteor_car_445.cpp
+// File: main.cpp
 
 #include <cstdio>
 #include <cmath>
@@ -9,12 +9,13 @@
 /*
 ARCHITECTURE STATEMENT
 Main Idea:
-  Render a simple “toss at the tower” scene using MODELVIEW transforms.
+  Render a simple toss at the tower scene using MODELVIEW transforms.
   Every frame, clear the canvas and redraw the scene from current state.
-  Projectiles are positioned/oriented via glTranslatef / glScalef, never by
+  Projectiles are positioned and oriented via glTranslatef and glScalef, never by
   drawing at absolute coordinates directly.
-GLUT callbacks:
-    - display_func: draws the entire scene each frame (full redraw; no trails).
+
+GLUT Callbacks:
+  - display_func: draws the entire scene each frame (full redraw; no trails).
   - keyboard_func:
       * In READY: pressing M or E selects gravity and starts the simulation.
       * In RUNNING: H or J nudges the projectile left or right by 4 units and
@@ -24,19 +25,72 @@ GLUT callbacks:
     to the projectile vertical motion using a constant-acceleration update.
   - cooldown_ready: one-shot timer that fires 1 second after a projectile
     ends; spawns the next projectile on the pad and resumes RUNNING.
-Data:
-  Global state stores meteor center (x,y), animation flags, constants for car dimensions.
-  Callbacks read and update global state as needed.
-  Displaylist for meteor.
-Render:
-  Each frame clears to brand black (44,42,41), then draws car and meteor.
-  Drawing is done by translating to the desired position and drawing each object at the origin.
-  Car is drawn with 3 boxes and 2 wheels.
-  Meteor is drawn with a displaylist of a scaled wire octahedron.
-  All objects lie at z = -10 except for meteor at -100.
-Animation:
-  Timer period = 20 ms meteor steps 4 units down each tick and car goes 4 units forward each time j/J is pressed.
-  Total fall time roughly 3 s.
+
+Data and Global State:
+  - g_state: { READY, RUNNING, FINISHED, NEXT_PROJECTILE } controls the main loop.
+  - current_projectile: { DIAMONDS, TEAPOT } selects which shape to draw.
+  - (cx, cy): projectile centroid in world units (feet). cy is initialized so
+    the projectile bottom rests on the launch pad.
+  - v: current vertical velocity (ft/s). Initialized to 0 for each projectile.
+  - gravity: magnitude of gravitational acceleration (ft/s^2). Sign is applied
+    inside physics; positive values here mean downward acceleration is -gravity.
+  - dt: fixed time step (0.02 s).
+  - launched: false until the user presses H or J; gravity updates only after
+    launch.
+  - projectileCount: remaining projectiles (game flow control).
+  - tower_hit: latched flag to print You Win when the tower is hit.
+
+Rendering:
+  - Canvas: 600x600, black background.
+  - View box and world: x in [0, 600], y in [0, 600], z in [0, -100].
+  - All visible geometry lies in the z = -50 plane (Z_PLANE and PROJECTILE_Z).
+  - All drawing uses wireframe line segments.
+  - Color scheme:
+      * Water line (aqua) at y = 7 across the width.
+      * Tower (red) at the lower right; width 100, height 200.
+      * Launch pad (white) of length 50 at y = 450 attached to left wall.
+      * Projectiles (green): diamond = GLUT wire octahedron; teapot = GLUT teapot.
+
+Transforms and Sizes:
+  - Projectiles are centered at (cx, cy, -50) via glTranslatef.
+  - Diamond is uniformly scaled with glScalef(PROJECTILE_RADIUS) so its
+    overall size is 40 (radius = 20).
+  - Teapot is drawn with glutWireTeapot(PROJECTILE_RADIUS) which is about
+    40 units overall.
+
+Animation and Physics:
+  - Start in READY: on-screen message prompts to choose gravity:
+      Press e for Earths gravity and m for Ganymedes
+  - Gravity selection (one-time, cannot change later):
+      * M or m -> Ganymede: gravity = -4.7 
+      * E or e -> Earth:    gravity = -32  
+  - After selecting gravity, state goes to RUNNING and first projectile appears
+    on the pad; it does not fall until the first H or J keypress sets launched to true.
+  - Vertical motion update each timer tick when RUNNING and launched:
+      y += v * dt + 0.5 * (-gravity) * dt^2
+      v += (-gravity) * dt
+
+Controls:
+  - H or h: move projectile left by 4 units and set launched to true.
+  - J or j: move projectile right by 4 units and set launched to true.
+
+End of Flight and Lifecycle:
+  - A projectile ends its flight immediately when any one occurs:
+      * Bottom tip reaches the water line (y = 7).
+      * Right tip reaches the right screen edge (x = 600).
+      * Tower collision check triggers.
+  - After a non-winning end, state goes to NEXT_PROJECTILE and the projectile is
+    hidden for 1 second. After cooldown_ready fires, a new projectile is
+    spawned on the launch pad (cx = 25, cy = 450 + radius, v = 0, launched = false)
+    and state returns to RUNNING.
+  - When tower_hit is true, display_func prints You Win and stops play.
+  - Program exits only via the window manager or default system exit.
+
+NOTES:
+  - The teapot Radius has been kind of weird for me to figure out
+    The spout and the handle seem to not be included
+    I thought about changing the radius but I decided to keep it 20 like the assignment says
+    If desired I can easily change the hit box to include the spout and handle
 */
 
 // Canvas & Colors 
@@ -115,9 +169,10 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
 
 // Projectiles
 
+// Draw the wireframe teapot centered at (cx, cy, PROJECTILE_Z).
+// Uses PROJECTILE_RADIUS as the teapot size.
 static void drawTeapot(GLfloat cx, GLfloat cy)
 {
-    //projectileCount--;
     glLoadIdentity();
     glTranslatef(cx, cy, PROJECTILE_Z);
     
@@ -125,9 +180,10 @@ static void drawTeapot(GLfloat cx, GLfloat cy)
     glLoadIdentity();
 }
 
+// Draw the wireframe octahedron (diamond) centered at (cx, cy, PROJECTILE_Z).
+// Uniformly scales by PROJECTILE_RADIUS to achieve size 40.
 static void drawDiamond(GLfloat cx, GLfloat cy)
 {
-    //projectileCount--;
     glLoadIdentity();
     glTranslatef(cx, cy, PROJECTILE_Z);
     glScalef(PROJECTILE_RADIUS, PROJECTILE_RADIUS, PROJECTILE_RADIUS);
@@ -135,6 +191,7 @@ static void drawDiamond(GLfloat cx, GLfloat cy)
     glLoadIdentity();
 }
 
+// Draw the white launch pad line at y = 450 on the left edge.
 static void drawPlatform()
 {
     glLoadIdentity();
@@ -143,6 +200,7 @@ static void drawPlatform()
     glLoadIdentity();
 }
 
+// Draw the aqua water line across the screen at y = 7.
 static void drawWater()
 {
     glLoadIdentity();
@@ -151,6 +209,7 @@ static void drawWater()
     glLoadIdentity();
 }
 
+// Draw the red tower wireframe (axis-aligned box) at the lower-right.
 static void drawTower()
 {
     glLoadIdentity();
@@ -183,15 +242,21 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
     }
 }
 
+// Quick tower-hit test based on current projectile center and radius.
+// Returns true if projectile overlaps the tower region
 static bool towerHit(GLfloat cx, GLfloat cy){
-    if((cy-20) <= 200 && cx >= 420 && cx <= 560){ // pick up here
+    if((cy-20) <= 200 && cx >= 420 && cx <= 560){
         //g_state = FINISHED;
         return true;
     }
     return false;
 }
 
+// Returns true if the projectile’s bottom tip reaches the water line (y = 7).
 static bool waterHit(GLfloat cx, GLfloat cy) {
+    if (current_projectile == TEAPOT){
+        cy-=3;
+    }
     if((cy-20) <= 7){
         //g_state = FINISHED;
         return true;
@@ -199,6 +264,7 @@ static bool waterHit(GLfloat cx, GLfloat cy) {
     return false;
 }
 
+// Returns true if the projectile’s right tip reaches the right screen edge (x = 600).
 static bool rightHit(GLfloat cx, GLfloat cy) {
     if((cx+20) >= 600){
         
@@ -213,7 +279,8 @@ static bool rightHit(GLfloat cx, GLfloat cy) {
 static void timer_func(int /*value*/);
 
 
-// Projectile cannot move for 1 sec after generation
+// Cooldown callback fired 1 second after a projectile ends.
+// Makes the new projectile visible and resumes RUNNING with the timer.
 static void cooldown_ready(int) {
     visible = true;
     g_state = RUNNING;  // after 1s, allow user to start the next shot
@@ -221,10 +288,8 @@ static void cooldown_ready(int) {
     glutPostRedisplay();
 }
 
-//  Timer callback 
-// Mecahnism: if in RUNNING state, move meteor down by STEP_PER_TICK
-// If meteor bottom <= 0, set state to FINISHED and return
-// Otherwise, post redisplay and reset timer
+// Timer callback driving the animation at ~20 ms intervals.
+// Applies gravity after launch; handles hit/miss, cooldown scheduling, and redraw.
 static void timer_func(int /*value*/)
 {
     if (g_state != RUNNING) return;
@@ -316,9 +381,8 @@ static void timer_func(int /*value*/)
 
 // Display callback 
 //  Render the whole scene
-//  Clear to brand black, draw car and meteor
-//  If in READY state, draw "Any Key Click Will Start" message
-//  Single buffering
+// GLUT display callback: clears and redraws the entire scene each frame.
+// Shows start text (READY) or You Win (tower_hit), otherwise draws world and projectile.
 
 static void display_func()
 {
@@ -327,7 +391,7 @@ static void display_func()
 
     if (g_state == READY) {
         glColor3f(1.0f, 1.0f, 1.0f);
-        drawBitmapStringCenter("Press e for Earth's gravity and m for Ganymede's ", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
+        drawBitmapStringCenter("Press M or E to Start", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
         glFlush();
         return;
     }
@@ -361,7 +425,7 @@ static void display_func()
         drawDiamond(cx, cy);
     }
     else if(visible == true){
-        drawTeapot(cx, cy);
+        drawTeapot(cx, cy-5);
     }
    
 
@@ -370,7 +434,8 @@ static void display_func()
 
 
 
-//  Keyboard callback 
+// GLUT keyboard callback: selects gravity in READY, nudges left/right in RUNNING.
+// First H/J press sets launched = true to begin gravity. 
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
     
@@ -410,7 +475,7 @@ static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 
 
 
-//  Main 
+//  Program entry: initializes GLUT/GL, registers callbacks, and enters main loop.
 int main(int argc, char **argv)
 {
 
