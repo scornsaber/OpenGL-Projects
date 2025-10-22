@@ -1,4 +1,4 @@
-// Graphics Pgm 2 for Caleb Bowen
+// Graphics Pgm 3 for Caleb Bowen
 // File: main.cpp
 
 #include <cstdio>
