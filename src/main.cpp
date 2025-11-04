@@ -181,7 +181,7 @@ static void display_func()
 
     glLoadIdentity();
 
-    glFlush(); // single buffering
+    glutSwapBuffers(); // single buffering
 }
 
 
