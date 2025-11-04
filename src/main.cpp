@@ -1,4 +1,4 @@
-// Graphics Pgm 3 for Caleb Bowen
+// Graphics Pgm 4 for Caleb Bowen
 // File: main.cpp
 
 #include <cstdio>
@@ -94,14 +94,13 @@ NOTES:
 */
 
 // Canvas & Colors 
-#define canvas_Width 600
-#define canvas_Height 600
-char canvas_Name[] = "CS 445 Meteor & Car"; // creative name I know
-
-// Brand black (44,42,41) normalized
-constexpr GLfloat BRAND_R = 44.0f / 255.0f;
-constexpr GLfloat BRAND_G = 42.0f / 255.0f;
-constexpr GLfloat BRAND_B = 41.0f / 255.0f;
+#define canvas_Width 800
+#define canvas_Height 800
+char canvas_Name[] = "CS 445 Fish in a Tank";
+// PANTONE Spun Sugar normalized
+constexpr GLfloat BRAND_R = 180.0f / 255.0f;
+constexpr GLfloat BRAND_G = 220.0f / 255.0f;
+constexpr GLfloat BRAND_B = 234.0f / 255.0f;
 
 
 // Scene Geometry 
@@ -119,42 +118,6 @@ constexpr GLfloat PROJECTILE_Z = -50.0f;
 constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
 constexpr GLfloat STEP_PER_TICK = 4.0f;  // units per tick
 
-//  Global State 
-enum AnimState { 
-    READY = 0, 
-    RUNNING = 1, 
-    FINISHED = 2,
-    NEXT_PROJECTILE =3
-};
-
-
-enum ProjectileState { 
-    DIAMONDS = 0, 
-    TEAPOT = 1
-};
-
-static AnimState g_state = READY;
-
-
-static GLfloat cx = 25.0f;
-static GLfloat cy = 450.0f + PROJECTILE_RADIUS;
-
-static ProjectileState current_projectile = DIAMONDS;
-
-static GLfloat dt = 0.02f;
-static GLfloat v = 0;
-
-static GLfloat gravity = 32;
-
-static bool tower_hit = false;
-
-static bool launched = false;
-
-static bool visible = true;
-
-
-static GLint projectileCount = 3;
-//static GLfloat carOffsetX = 0.0f;
 
 //  Utility: draw a line 
 static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
@@ -165,24 +128,11 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
     glEnd();
 }
 
-// Displaylist for meteor
 
-// Projectiles
-
-// Draw the wireframe teapot centered at (cx, cy, PROJECTILE_Z).
-// Uses PROJECTILE_RADIUS as the teapot size.
-static void drawTeapot(GLfloat cx, GLfloat cy)
-{
-    glLoadIdentity();
-    glTranslatef(cx, cy, PROJECTILE_Z);
-    
-    glutWireTeapot(PROJECTILE_RADIUS);
-    glLoadIdentity();
-}
 
 // Draw the wireframe octahedron (diamond) centered at (cx, cy, PROJECTILE_Z).
 // Uniformly scales by PROJECTILE_RADIUS to achieve size 40.
-static void drawDiamond(GLfloat cx, GLfloat cy)
+static void drawFishBody(GLfloat cx, GLfloat cy)
 {
     glLoadIdentity();
     glTranslatef(cx, cy, PROJECTILE_Z);
@@ -191,42 +141,6 @@ static void drawDiamond(GLfloat cx, GLfloat cy)
     glLoadIdentity();
 }
 
-// Draw the white launch pad line at y = 450 on the left edge.
-static void drawPlatform()
-{
-    glLoadIdentity();
-    glTranslatef(0, 450, 0);
-    line2(0, 0, 50, 0);
-    glLoadIdentity();
-}
-
-// Draw the aqua water line across the screen at y = 7.
-static void drawWater()
-{
-    glLoadIdentity();
-    //glTranslatef(0, 450, 0.0f);
-    line2(0, 7, 700, 7);
-    glLoadIdentity();
-}
-
-// Draw the red tower wireframe (axis-aligned box) at the lower-right.
-static void drawTower()
-{
-    glLoadIdentity();
-    line2(440, 0, 540, 0);
-    line2(440, 200, 540, 200);
-    line2(440, 0, 440, 200);
-    line2(540, 0, 540, 200);
-    glLoadIdentity();
-}
-
-
-// Advance position & velocity by timestep dt (seconds). Returns new y.
-inline float stepY(float& y, float& v, float dt) {
-    y += v * dt + 0.5f * -gravity * dt * dt;  // new position
-    v += -gravity * dt;                        // new velocity
-    return y;
-}
 
 
 //  Utility: draw a bitmap string centered at (cx,cy) on Z_PLANE
@@ -242,233 +156,40 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
     }
 }
 
-// Quick tower-hit test based on current projectile center and radius.
-// Returns true if projectile overlaps the tower region
-static bool towerHit(GLfloat cx, GLfloat cy){
-    if((cy-20) <= 200 && cx >= 420 && cx <= 560){
-        //g_state = FINISHED;
-        return true;
-    }
-    return false;
-}
-
-// Returns true if the projectile’s bottom tip reaches the water line (y = 7).
-static bool waterHit(GLfloat cx, GLfloat cy) {
-    if (current_projectile == TEAPOT){
-        cy-=3;
-    }
-    if((cy-20) <= 7){
-        //g_state = FINISHED;
-        return true;
-    }
-    return false;
-}
-
-// Returns true if the projectile’s right tip reaches the right screen edge (x = 600).
-static bool rightHit(GLfloat cx, GLfloat cy) {
-    if((cx+20) >= 600){
-        
-        //g_state = FINISHED;
-        return true;
-    }
-    return false;
-}
 
 
-// Declared so signature is there
-static void timer_func(int /*value*/);
 
 
-// Cooldown callback fired 1 second after a projectile ends.
-// Makes the new projectile visible and resumes RUNNING with the timer.
-static void cooldown_ready(int) {
-    visible = true;
-    g_state = RUNNING;  // after 1s, allow user to start the next shot
-    glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
-    glutPostRedisplay();
-}
+
 
 // Timer callback driving the animation at ~20 ms intervals.
-// Applies gravity after launch; handles hit/miss, cooldown scheduling, and redraw.
+
 static void timer_func(int /*value*/)
 {
-    if (g_state != RUNNING) return;
-
-    if (!launched) {
-    glutPostRedisplay();
-    glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0); // keep ticking, but no fall yet
-    return;
-}
-    
-    if(waterHit(cx, cy) == true){
-        std::puts("Water");
-        if(projectileCount <= 0){
-            g_state = FINISHED;
-            std::puts("Ran");
-            glutPostRedisplay();
-            return;
-        }
-        if(projectileCount > 0){
-            g_state = NEXT_PROJECTILE;
-            cx = 25.0f;
-            cy = 450.0f + PROJECTILE_RADIUS;
-            v = 0;
-            launched = false;
-            visible = false;
-            glutTimerFunc(1000, cooldown_ready, 0);
-        }
-        if(projectileCount <= 1){
-            current_projectile = TEAPOT;
-        }
-        projectileCount--;
-        glutPostRedisplay();
-        return;
-    }
-
-    if(towerHit(cx, cy)){
-        std::puts("You win");
-        g_state = FINISHED;
-        tower_hit = true;
-        /*if(projectileCount <= 0){
-            g_state = FINISHED;
-            glutPostRedisplay();
-            return;
-        }
-        if(projectileCount > 0){
-            g_state = NEXT_PROJECTILE;
-            cx = 25.0f;
-            cy = 450.0f;
-            glutTimerFunc(1000, cooldown_ready, 0);
-        }*/
-        if(projectileCount <= 1){
-            current_projectile = TEAPOT;
-        }
-        projectileCount--;
-        glutPostRedisplay();
-        return;
-    }
-
-    if(rightHit(cx, cy)){
-        std::puts("Right wall");
-        if(projectileCount <= 0){
-            g_state = FINISHED;
-            glutPostRedisplay();
-            return;
-        }
-        if(projectileCount > 0){
-            g_state = NEXT_PROJECTILE;
-            cx = 25.0f;
-            cy = 450.0f + PROJECTILE_RADIUS;
-            v = 0;
-            launched = false;
-            visible = false;
-            glutTimerFunc(1000, cooldown_ready, 0);
-        }
-        if(projectileCount <= 1){
-            current_projectile = TEAPOT;
-        }
-        projectileCount--;
-        glutPostRedisplay();
-        return;
-    }
-
-    cy = stepY(cy, v, dt); // Apply acceleration
     glutPostRedisplay();
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 }
 
 
 
-// Display callback 
-//  Render the whole scene
-// GLUT display callback: clears and redraws the entire scene each frame.
-// Shows start text (READY) or You Win (tower_hit), otherwise draws world and projectile.
 
 static void display_func()
 {
     glClearColor(BRAND_R, BRAND_G, BRAND_B, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    if (g_state == READY) {
-        glColor3f(1.0f, 1.0f, 1.0f);
-        drawBitmapStringCenter("Press M or E to Start", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
-        glFlush();
-        return;
-    }
-
-    if (g_state == FINISHED && tower_hit == true) {
-        glColor3f(1.0f, 1.0f, 1.0f);
-        drawBitmapStringCenter("You Win!", GLUT_BITMAP_HELVETICA_18, canvas_Width*0.5f, canvas_Height*0.5f);
-        glFlush();
-        return;
-    }
-
 
     glLoadIdentity();
-    
-
-    //drawCar(cx, cy);
-
-    glColor3f(0.0f, 1.0f, 1.0f);
-
-
-    drawWater();
-
-    glColor3f(1.0f, 0.0f, 0.0f);
-    drawTower();
-
-    glColor3f(1.0f, 1.0f, 1.0f);
-    drawPlatform();
-
-    glColor3f(0.0f, 1.0f, 0.0f);
-    if(current_projectile == DIAMONDS && visible == true){
-        
-        drawDiamond(cx, cy);
-    }
-    else if(visible == true){
-        drawTeapot(cx, cy-5);
-    }
-   
 
     glFlush(); // single buffering
 }
 
 
 
-// GLUT keyboard callback: selects gravity in READY, nudges left/right in RUNNING.
-// First H/J press sets launched = true to begin gravity. 
+
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
     
-    if (g_state == READY && (key == 'm' || key == 'M' || key == 'e' || key == 'E')) {
-        g_state = RUNNING;
-        std::puts("Key pressed -> animation RUNNING");
-        if(key == 'M' || key == 'm'){
-            gravity = 4.7;
-        }
-        else{
-            gravity = 32;
-        }
-        glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
-        return;
-    }
-
-    /*if((key == 'x' || key == 'X') && g_state == NEXT_PROJECTILE){
-        g_state = RUNNING;
-        std::puts("Key pressed -> Next Projectile");
-        glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
-        return;
-    }*/
-
-    if ((key == 'j' || key == 'J') && g_state == RUNNING) {
-        cx += STEP_PER_TICK;
-        launched = true;
-    }
-
-    if ((key == 'h' || key == 'H') && g_state == RUNNING) {
-        cx -= STEP_PER_TICK;
-        launched = true;
-    }
     glutPostRedisplay();
     
 }
@@ -481,12 +202,12 @@ int main(int argc, char **argv)
 {
 
     glutInit(&argc, argv);
-    my_setup(canvas_Width, canvas_Height, canvas_Name);
+    my_setup(canvas_Width/2, canvas_Height/2, canvas_Name);
 
     
     glutDisplayFunc(display_func);
     glutKeyboardFunc(keyboard_func);
-    //glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
+    glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 
     glutMainLoop();
     return 0;
