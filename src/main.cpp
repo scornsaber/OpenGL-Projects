@@ -417,6 +417,7 @@ static void display_func()
     glColor3f(1.0f, 0.0f, 0.0f);
     drawTower();
 
+    glColor3f(1.0f, 1.0f, 1.0f);
     drawPlatform();
 
     glColor3f(0.0f, 1.0f, 0.0f);
@@ -482,7 +483,6 @@ int main(int argc, char **argv)
     glutInit(&argc, argv);
     my_setup(canvas_Width, canvas_Height, canvas_Name);
 
-    // Create meteor display list using a scaled wire octahedron
     
     glutDisplayFunc(display_func);
     glutKeyboardFunc(keyboard_func);
