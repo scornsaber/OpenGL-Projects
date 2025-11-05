@@ -132,14 +132,46 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
 
 // Draw the wireframe octahedron (diamond) centered at (cx, cy, PROJECTILE_Z).
 // Uniformly scales by PROJECTILE_RADIUS to achieve size 40.
-static void drawFishBody(GLfloat cx, GLfloat cy)
-{
+static void drawFishBody(GLfloat x, GLfloat y, GLfloat z, int flag)
+{   
+    GLfloat w = 150.0f;
+    GLfloat h = 50.0f;
+    GLfloat d = 25.0f;
+    if(flag == 1){
+        w = 50.0f;
+        h = 20.0f;
+        d = 10.0f;
+    }
     glLoadIdentity();
-    glTranslatef(cx, cy, PROJECTILE_Z);
-    glScalef(PROJECTILE_RADIUS, PROJECTILE_RADIUS, PROJECTILE_RADIUS);
+    glTranslatef(x, y, z);
+    glScalef(w, h, d);
     glutWireOctahedron();
     glLoadIdentity();
 }
+
+static void drawFishTail(int flag)
+{
+    if(flag == 1)
+    {
+        glLoadIdentity();
+        glBegin(GL_LINE_LOOP);
+        glVertex3f(0.0f,10.0f,-400.0f);
+        glVertex3f(7.0f,0.0f,-400.0f);
+        glVertex3f(7.0f,20.0f,-400.0f);
+        glEnd();
+    }
+    else
+    {
+        glLoadIdentity();
+        glBegin(GL_LINE_LOOP);
+        glVertex3f(0.0f,25.0f,-400.0f);
+        glVertex3f(20.0f,0.0f,-400.0f);
+        glVertex3f(20.0f,50.0f,-400.0f);
+        glEnd();
+    }
+    
+}
+
 
 
 
@@ -177,11 +209,13 @@ static void display_func()
 {
     glClearColor(BRAND_R, BRAND_G, BRAND_B, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-
-
+    glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    glutSwapBuffers(); // single buffering
+    glColor3f(1.0f, 0.0f, 0.0f);
+    drawFishTail(0);
+
+    glutSwapBuffers(); // double buffering
 }
 
 
@@ -202,7 +236,7 @@ int main(int argc, char **argv)
 {
 
     glutInit(&argc, argv);
-    my_setup(canvas_Width/2, canvas_Height/2, canvas_Name);
+    my_setup(canvas_Width, canvas_Height, canvas_Name);
 
     
     glutDisplayFunc(display_func);

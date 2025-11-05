@@ -16,12 +16,12 @@ TSN 2025 version – for OpenGL 4.3 w/legacy compatibility
 
 void my_3d_projection(int width, int height)
 {
-    GLdouble width_bound, height_bound;
-    width_bound = (GLdouble) width; height_bound = (GLdouble) height;
+    //GLdouble width_bound, height_bound;
+    //width_bound = (GLdouble) width; height_bound = (GLdouble) height;
     glViewport(0, 0, width, height);
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    glOrtho(-400.0, width_bound, -400.0, height_bound, -900.0, -100.0);
+    glOrtho(-400.0, 400.0f, -400.0, 400.0f, -900.0, -100.0);
     glMatrixMode(GL_MODELVIEW);
 }
 
