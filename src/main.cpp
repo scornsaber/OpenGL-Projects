@@ -112,7 +112,7 @@ constexpr int DIAMOND_COUNT = 0;
 constexpr int TEAPOT_COUNT = 0;
 constexpr GLfloat PROJECTILE_RADIUS = 20.0f;
 
-constexpr GLfloat PROJECTILE_Z = -50.0f;
+constexpr GLfloat PROJECTILE_Z = -200.0f;
 
 //  Animation Tuning 
 constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
@@ -123,8 +123,8 @@ constexpr GLfloat STEP_PER_TICK = 4.0f;  // units per tick
 static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
 {
     glBegin(GL_LINES);
-    glVertex3f(x1, y1, Z_PLANE);
-    glVertex3f(x2, y2, Z_PLANE);
+    glVertex3f(x1, y1, -400);
+    glVertex3f(x2, y2, -400);
     glEnd();
 }
 
@@ -209,13 +209,14 @@ static void display_func()
 {
     glClearColor(BRAND_R, BRAND_G, BRAND_B, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
     glColor3f(1.0f, 0.0f, 0.0f);
-    drawFishTail(0);
-
-    glutSwapBuffers(); // double buffering
+    //drawFishTail(0);  
+    line2(0.0f, 100.0f, 0.0f, -100.0f);
+    glutSwapBuffers(); // double buffer
 }
 
 
