@@ -123,8 +123,8 @@ constexpr GLfloat STEP_PER_TICK = 4.0f;  // units per tick
 static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
 {
     glBegin(GL_LINES);
-    glVertex3f(x1, y1, 50);
-    glVertex3f(x2, y2, 50);
+    glVertex3f(x1, y1, -50);
+    glVertex3f(x2, y2, -50);
     glEnd();
 }
 
