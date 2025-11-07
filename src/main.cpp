@@ -112,16 +112,12 @@ constexpr GLfloat SPICY_R = 216.0f / 255.0f;
 constexpr GLfloat SPICY_G = 174.0f / 255.0f;
 constexpr GLfloat SPICY_B = 72.0f / 255.0f;
 
-// Scene Geometry 
-constexpr GLfloat Z_PLANE = -50.0f;
+//  PANTONE Hunter Green.
+constexpr GLfloat GREEN_R = 53.0f / 255.0f;
+constexpr GLfloat GREEN_G = 94.0f / 255.0f;
+constexpr GLfloat GREEN_B = 59.0f / 255.0f;
 
-// Projectile constants
 
-constexpr int DIAMOND_COUNT = 0;
-constexpr int TEAPOT_COUNT = 0;
-constexpr GLfloat PROJECTILE_RADIUS = 20.0f;
-
-constexpr GLfloat PROJECTILE_Z = -200.0f;
 
 //  Animation Tuning 
 constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
@@ -158,7 +154,14 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
     glEnd();
 }
 
-
+static void drawTeapot(GLfloat cx, GLfloat cy)
+{
+    glLoadIdentity();
+    glTranslatef(cx, cy, -400.0f);
+    
+    glutWireTeapot(50);
+    glLoadIdentity();
+}
 
 // Draw the wireframe octahedron (diamond) centered at (cx, cy, PROJECTILE_Z).
 // Uniformly scales by PROJECTILE_RADIUS to achieve size 40.
@@ -242,7 +245,7 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
     for (const char* p = s; *p; ++p){
         w += glutBitmapWidth(font, *p);
     }
-    glRasterPos3f(cx - w*0.5f, cy, Z_PLANE);
+    glRasterPos3f(cx - w*0.5f, cy, -400.0f);
     for (const char* p = s; *p; ++p) {
         glutBitmapCharacter(font, *p);
     }
@@ -285,8 +288,11 @@ static void display_func()
     glClearColor(BRAND_R, BRAND_G, BRAND_B, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glMatrixMode(GL_MODELVIEW);
+    
     glLoadIdentity();
+
+    glColor3f(GREEN_R, GREEN_G, GREEN_B);
+    drawTeapot(75.0f, -360.0f);
 
     glColor3f(ORANGE_R, ORANGE_G, ORANGE_B);
     Turn();
@@ -309,7 +315,7 @@ static void display_func()
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
     if(key == 'q' || key == 'Q'){
-        current_state == Done;
+        current_state = Done;
         return;
     }
     glutPostRedisplay();
