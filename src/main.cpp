@@ -135,12 +135,15 @@ enum Size {
 
 enum State {
   Swimming = 0,
-  Done = 1
+  Done = 1,
+  Rotating = 2
 };
 
 
 static Direction current_direction = Right;
 static State current_state = Swimming;
+
+static float rotate_accum = 0.0f;
 
 static GLfloat fx = -5.0f;
 static GLfloat fy = 0.0f;
@@ -165,7 +168,7 @@ static void drawTeapot(GLfloat cx, GLfloat cy)
 
 // Draw the wireframe octahedron (diamond) centered at (cx, cy, PROJECTILE_Z).
 // Uniformly scales by PROJECTILE_RADIUS to achieve size 40.
-static void drawFishBody(GLfloat x, GLfloat y, GLfloat z, Size s)
+static void drawFishBody(Size s)
 {   
     GLfloat w = 75.0f;
     GLfloat h = 25.0f;
@@ -175,16 +178,17 @@ static void drawFishBody(GLfloat x, GLfloat y, GLfloat z, Size s)
         h = 10.0f;
         d = 5.0f;
     }
-    glLoadIdentity();
-    glTranslatef(x, y, z);
+    //glLoadIdentity();
+    //glTranslatef(x, y, z);
     glScalef(w, h, d);
     glutWireOctahedron();
-    glLoadIdentity();
+    glScalef(1/w, 1/h, 1/d);
+    //glLoadIdentity();
 }
 
 static void drawFishTail(GLfloat x, GLfloat y, Size s, Direction di)
 {
-    GLfloat x2;
+    /*GLfloat x2;
     if(s == Small)
     {
         if(di == Right){
@@ -195,7 +199,7 @@ static void drawFishTail(GLfloat x, GLfloat y, Size s, Direction di)
           x+= 25;
           x2 = x+7;
         }
-        glLoadIdentity();
+        //glLoadIdentity();
         glBegin(GL_LINE_LOOP);
         glVertex3f(x,y,-400.0f);
         glVertex3f(x2,y-3.5,-400.0f);
@@ -212,27 +216,43 @@ static void drawFishTail(GLfloat x, GLfloat y, Size s, Direction di)
           x+= 75;
           x2 = x+20;
         }
-        glLoadIdentity();
+        //glLoadIdentity();
         glBegin(GL_LINE_LOOP);
         glVertex3f(x,y,-400.0f);
         glVertex3f(x2,y-10,-400.0f);
         glVertex3f(x2,y+10,-400.0f);
         glEnd();
-    }
+    }*/
+    const GLfloat w  = (s == Small) ? 25.0f : 75.0f;  // half body width
+    const GLfloat th = (s == Small) ? 3.5f  : 10.0f;  // tail half-height
+    const GLfloat tx = (s == Small) ? 7.0f  : 20.0f;  // tail length
+
+    
+    glBegin(GL_LINE_LOOP);
+    glVertex3f(-w,      0.0f,  0.0f);
+    glVertex3f(-w - tx, -th,   0.0f);
+    glVertex3f(-w - tx,  th,   0.0f);
+    glEnd();
     
 }
 
 static void drawSmallFish(GLfloat x, GLfloat y, GLfloat z, Direction d) {
   glPushMatrix();
-  drawFishBody(x,y,z,Small);
+  glTranslatef(x, y, z);
+  drawFishBody(Small);
+  //glLoadIdentity();
   drawFishTail(x, y, Small, d);
   glPopMatrix();
 
 }
 
-static void drawLargeFish(GLfloat x, GLfloat y, GLfloat z, Direction d) {
+static void drawLargeFish(GLfloat x, GLfloat y, GLfloat z, Direction d, GLfloat rot) {
   glPushMatrix();
-  drawFishBody(x,y,z, Big);
+  glTranslatef(x, y, z);
+  glRotatef(rot, 0.0f, 1.0f, 0.0f);
+  drawFishBody(Big);
+  //glLoadIdentity();
+  //glRotatef(rot, 0.0f, 1.0f, 0.0f);
   drawFishTail(x, y, Big, d);
   glPopMatrix();
 }
@@ -260,6 +280,7 @@ static void Turn(){
       else{
         current_direction = Right;
       }
+      current_state = Rotating;
     }
 }
 
@@ -296,13 +317,30 @@ static void display_func()
 
     glColor3f(ORANGE_R, ORANGE_G, ORANGE_B);
     Turn();
-    if(current_direction == Right){
-      fx+=5;
+    if(current_state == Rotating){
+      if(rotate_accum >= 180){
+        rotate_accum = 0.0f;
+        current_state = Swimming;
+        if(current_direction == Right){
+          fx+=5;
+        }
+        else{
+          fx-=5;
+    }
+      }
+      else{
+        rotate_accum += 5;
+      }
     }
     else{
-      fx-=5;
+      if(current_direction == Right){
+        fx+=5;
+      }
+      else{
+        fx-=5;
     }
-    drawLargeFish(fx, fy, fz, current_direction);
+    }
+    drawLargeFish(fx, fy, fz, current_direction, rotate_accum);
     glColor3f(SPICY_R, SPICY_G, SPICY_B);
     drawSmallFish(-325.0f, -350.0f, -400.0f, Right);
     
