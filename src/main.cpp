@@ -102,6 +102,15 @@ constexpr GLfloat BRAND_R = 180.0f / 255.0f;
 constexpr GLfloat BRAND_G = 220.0f / 255.0f;
 constexpr GLfloat BRAND_B = 234.0f / 255.0f;
 
+//  PANTONE Tangerine Tango
+constexpr GLfloat ORANGE_R = 221.0f / 255.0f;
+constexpr GLfloat ORANGE_G = 65.0f / 255.0f;
+constexpr GLfloat ORANGE_B = 36.0f / 255.0f;
+
+// PANTONE Spicy Mustard.
+constexpr GLfloat SPICY_R = 216.0f / 255.0f;
+constexpr GLfloat SPICY_G = 174.0f / 255.0f;
+constexpr GLfloat SPICY_B = 72.0f / 255.0f;
 
 // Scene Geometry 
 constexpr GLfloat Z_PLANE = -50.0f;
@@ -118,7 +127,18 @@ constexpr GLfloat PROJECTILE_Z = -200.0f;
 constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
 constexpr GLfloat STEP_PER_TICK = 4.0f;  // units per tick
 
+enum Direction {
+  Right = 0,
+  Left = 1
+};
 
+enum Size {
+  Big = 0,
+  Small = 1
+};
+
+
+static Direction current_direction = Right;
 //  Utility: draw a line 
 static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
 {
@@ -132,15 +152,15 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
 
 // Draw the wireframe octahedron (diamond) centered at (cx, cy, PROJECTILE_Z).
 // Uniformly scales by PROJECTILE_RADIUS to achieve size 40.
-static void drawFishBody(GLfloat x, GLfloat y, GLfloat z, int flag)
+static void drawFishBody(GLfloat x, GLfloat y, GLfloat z, Size s)
 {   
-    GLfloat w = 150.0f;
-    GLfloat h = 50.0f;
-    GLfloat d = 25.0f;
-    if(flag == 1){
-        w = 50.0f;
-        h = 20.0f;
-        d = 10.0f;
+    GLfloat w = 75.0f;
+    GLfloat h = 25.0f;
+    GLfloat d = 12.5f;
+    if(s == Small){
+        w = 25.0f;
+        h = 10.0f;
+        d = 5.0f;
     }
     glLoadIdentity();
     glTranslatef(x, y, z);
@@ -149,30 +169,60 @@ static void drawFishBody(GLfloat x, GLfloat y, GLfloat z, int flag)
     glLoadIdentity();
 }
 
-static void drawFishTail(int flag)
+static void drawFishTail(GLfloat x, GLfloat y, Size s, Direction di)
 {
-    if(flag == 1)
+    GLfloat x2;
+    if(s == Small)
     {
+        if(di == Right){
+          x-= 25;
+          x2 = x-7;
+        }
+        else{
+          x+= 25;
+          x2 = x+7;
+        }
         glLoadIdentity();
         glBegin(GL_LINE_LOOP);
-        glVertex3f(0.0f,10.0f,-400.0f);
-        glVertex3f(7.0f,0.0f,-400.0f);
-        glVertex3f(7.0f,20.0f,-400.0f);
+        glVertex3f(x,y,-400.0f);
+        glVertex3f(x2,y-3.5,-400.0f);
+        glVertex3f(x2,y+3.5,-400.0f);
         glEnd();
     }
     else
     {
+        if(di == Right){
+          x-= 75;
+          x2 = x-20;
+        }
+        else{
+          x+= 75;
+          x2 = x+20;
+        }
         glLoadIdentity();
         glBegin(GL_LINE_LOOP);
-        glVertex3f(0.0f,25.0f,-400.0f);
-        glVertex3f(20.0f,0.0f,-400.0f);
-        glVertex3f(20.0f,50.0f,-400.0f);
+        glVertex3f(x,y,-400.0f);
+        glVertex3f(x2,y-10,-400.0f);
+        glVertex3f(x2,y+10,-400.0f);
         glEnd();
     }
     
 }
 
+static void drawSmallFish(GLfloat x, GLfloat y, GLfloat z, Direction d) {
+  glPushMatrix();
+  drawFishBody(x,y,z,Small);
+  drawFishTail(x, y, Small, d);
+  glPopMatrix();
 
+}
+
+static void drawLargeFish(GLfloat x, GLfloat y, GLfloat z, Direction d) {
+  glPushMatrix();
+  drawFishBody(x,y,z, Big);
+  drawFishTail(x, y, Big, d);
+  glPopMatrix();
+}
 
 
 //  Utility: draw a bitmap string centered at (cx,cy) on Z_PLANE
@@ -213,8 +263,10 @@ static void display_func()
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
-    glColor3f(1.0f, 0.0f, 0.0f);
-    drawFishBody(0.0, 0.0, -400.0, 0);  
+    glColor3f(ORANGE_R, ORANGE_G, ORANGE_B);
+    drawLargeFish(100.0, -100.0, -400.0, current_direction);
+    glColor3f(SPICY_R, SPICY_G, SPICY_B);
+    drawSmallFish(-325.0f, -350.0f, -400.0f, Right);
     
     glutSwapBuffers(); // double buffer
 }
