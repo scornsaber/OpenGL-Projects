@@ -137,8 +137,18 @@ enum Size {
   Small = 1
 };
 
+enum State {
+  Swimming = 0,
+  Done = 1
+};
+
 
 static Direction current_direction = Right;
+static State current_state = Swimming;
+
+static GLfloat fx = -5.0f;
+static GLfloat fy = 0.0f;
+static constexpr GLfloat fz = -400.0f;
 //  Utility: draw a line 
 static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
 {
@@ -239,7 +249,16 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
 }
 
 
-
+static void Turn(){
+    if(fx+75 >= 396.0f || fx-75 <= -396.0f){
+      if(current_direction == Right){
+        current_direction = Left;
+      }
+      else{
+        current_direction = Right;
+      }
+    }
+}
 
 
 
@@ -248,6 +267,9 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
 
 static void timer_func(int /*value*/)
 {
+    if(current_state == Done){
+      return;
+    }
     glutPostRedisplay();
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 }
@@ -257,6 +279,9 @@ static void timer_func(int /*value*/)
 
 static void display_func()
 {
+    if(current_state == Done){
+      return;
+    }
     glClearColor(BRAND_R, BRAND_G, BRAND_B, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
@@ -264,7 +289,14 @@ static void display_func()
     glLoadIdentity();
 
     glColor3f(ORANGE_R, ORANGE_G, ORANGE_B);
-    drawLargeFish(100.0, -100.0, -400.0, current_direction);
+    Turn();
+    if(current_direction == Right){
+      fx+=5;
+    }
+    else{
+      fx-=5;
+    }
+    drawLargeFish(fx, fy, fz, current_direction);
     glColor3f(SPICY_R, SPICY_G, SPICY_B);
     drawSmallFish(-325.0f, -350.0f, -400.0f, Right);
     
@@ -276,7 +308,10 @@ static void display_func()
 
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
-    
+    if(key == 'q' || key == 'Q'){
+        current_state == Done;
+        return;
+    }
     glutPostRedisplay();
     
 }
@@ -287,7 +322,6 @@ static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 //  Program entry: initializes GLUT/GL, registers callbacks, and enters main loop.
 int main(int argc, char **argv)
 {
-
     glutInit(&argc, argv);
     my_setup(canvas_Width, canvas_Height, canvas_Name);
 
