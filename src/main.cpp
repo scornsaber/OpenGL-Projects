@@ -140,12 +140,12 @@ enum State {
 };
 
 
-static Direction current_direction = Right;
+static Direction current_direction = Left;
 static State current_state = Swimming;
 
-static float rotate_accum = 0.0f;
+static float rotate_accum = 180.0f;
 
-static GLfloat fx = -5.0f;
+static GLfloat fx = 0.0f;
 static GLfloat fy = 0.0f;
 static constexpr GLfloat fz = -400.0f;
 //  Utility: draw a line 
@@ -273,6 +273,7 @@ static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloa
 
 
 static void Turn(){
+    if(current_state != Swimming) return;
     if(fx+75 >= 396.0f || fx-75 <= -396.0f){
       if(current_direction == Right){
         current_direction = Left;
@@ -317,28 +318,18 @@ static void display_func()
 
     glColor3f(ORANGE_R, ORANGE_G, ORANGE_B);
     Turn();
-    if(current_state == Rotating){
-      if(rotate_accum >= 180){
-        rotate_accum = 0.0f;
-        current_state = Swimming;
-        if(current_direction == Right){
-          fx+=5;
-        }
-        else{
-          fx-=5;
-    }
+    if (current_state == Rotating) {
+      const float target = (current_direction == Right) ? 0.0f : 180.0f;
+
+      if (fabsf(rotate_accum - target) <= 0.01f) {
+          rotate_accum = target;
+          current_state = Swimming;
+          fx += (current_direction == Right) ? 5.0f : -5.0f;  // nudge off wall
+      } else {
+          rotate_accum += (rotate_accum < target) ? 5.0f : -5.0f; 
       }
-      else{
-        rotate_accum += 5;
-      }
-    }
-    else{
-      if(current_direction == Right){
-        fx+=5;
-      }
-      else{
-        fx-=5;
-    }
+    } else {
+      fx += (current_direction == Right) ? 5.0f : -5.0f;
     }
     drawLargeFish(fx, fy, fz, current_direction, rotate_accum);
     glColor3f(SPICY_R, SPICY_G, SPICY_B);
