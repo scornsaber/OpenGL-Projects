@@ -32,18 +32,18 @@ Tangerine Tango (large fish), Spicy Mustard (small fish), Hunter Green (teapot).
 
 Rendering and Geometry:
 drawFishBody scales the GLUT wireframe octahedron to represent the fish torso 
-(150×50×25 units for large fish, 50×20×10 for small).
+(150x50x25 units for large fish, 50x20x10 for small).
 drawFishTail draws a triangular wireframe tail attached at the body’s tip.
 drawLargeFish / drawSmallFish compose the full fish model by translating to world 
 position and drawing the body and tail in correct orientation.
-drawTeapot positions a 50-unit Hunter Green wireframe teapot at (75, −400, −400).
-The view volume spans x,y  [−400, 400] and z  [−900, −100], camera at origin facing −z.
+drawTeapot positions a 50-unit Hunter Green wireframe teapot at (75, -400, -400).
+The view volume spans x,y  [-400, 400] and z  [-900, -100], camera at origin facing -z.
 
 Animation Logic:
-During each frame, Turn() checks if the large fish’s nose approaches a wall (|x| > 396 − half-width).
- If so, current_state switches to Rotating. The fish then rotates ±5 per frame about its vertical (y)
+During each frame, Turn() checks if the large fish’s nose approaches a wall (|x| > 396 - half-width).
+ If so, current_state switches to Rotating. The fish then rotates +=5 per frame about its vertical (y)
   axis through its center until rotate_accum reaches its target (0 or 180). Once complete, the state 
-  returns to Swimming, and linear translation (±5 units per frame) resumes in the opposite direction. 
+  returns to Swimming, and linear translation (+=5 units per frame) resumes in the opposite direction. 
   The loop continues indefinitely until user exit.
 
 */
