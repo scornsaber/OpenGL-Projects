@@ -7,90 +7,45 @@
 #include <GL/freeglut.h>
 #include "OpenGL445Setup-2025.h"
 /*
-ARCHITECTURE STATEMENT
+Extra credit for doubling rotation rate completed. Input 'd' to double 'u' to undo
 Main Idea:
-  Render a simple toss at the tower scene using MODELVIEW transforms.
-  Every frame, clear the canvas and redraw the scene from current state.
-  Projectiles are positioned and oriented via glTranslatef and glScalef, never by
-  drawing at absolute coordinates directly.
+Render an animated aquarium scene in orthographic projection where a large orange fish 
+continuously swims between the tank walls, rotating 180 each time it reaches an edge, 
+and a smaller yellow fish and green teapot serve as static decorations. All motion and 
+transformations are handled using glTranslatef, glScalef, and glRotatef rather than absolute world coordinates.
 
 GLUT Callbacks:
-  - display_func: draws the entire scene each frame (full redraw; no trails).
-  - keyboard_func:
-      * In READY: pressing M or E selects gravity and starts the simulation.
-      * In RUNNING: H or J nudges the projectile left or right by 4 units and
-        also launches it so gravity begins to act.
-  - timer_func: advances animation at about 20 Hz (re-armed each tick). While
-    RUNNING and after the first H or J press (launched == true), applies gravity
-    to the projectile vertical motion using a constant-acceleration update.
-  - cooldown_ready: one-shot timer that fires 1 second after a projectile
-    ends; spawns the next projectile on the pad and resumes RUNNING.
+display_func: Clears the canvas each frame, updates position and rotation states,
+ and redraws the entire tank. Draws the large fish, small fish, and teapot using current global state.
+timer_func: Drives animation at fixed intervals,
+ re-arming itself each tick to maintain continuous motion and trigger redisplay.
+keyboard_func: Handles quit control (Q / q) to terminate the simulation cleanly.
+  Input 'd' to double rotation rate 'u' to undo.
 
 Data and Global State:
-  - g_state: { READY, RUNNING, FINISHED, NEXT_PROJECTILE } controls the main loop.
-  - current_projectile: { DIAMONDS, TEAPOT } selects which shape to draw.
-  - (cx, cy): projectile centroid in world units (feet). cy is initialized so
-    the projectile bottom rests on the launch pad.
-  - v: current vertical velocity (ft/s). Initialized to 0 for each projectile.
-  - gravity: magnitude of gravitational acceleration (ft/s^2). Sign is applied
-    inside physics; positive values here mean downward acceleration is -gravity.
-  - dt: fixed time step (0.02 s).
-  - launched: false until the user presses H or J; gravity updates only after
-    launch.
-  - projectileCount: remaining projectiles (game flow control).
-  - tower_hit: latched flag to print You Win when the tower is hit.
+current_direction: {Left, Right} — determines swim direction.
+current_state: {Swimming, Rotating, Done} — manages behavior phase.
+fx, fy, fz: position of the large fish torso center (in z = −400 plane).
+rotate_accum: cumulative rotation angle (0 <--> 180) for smooth turning animation.
+Color constants use PANTONE references for realism: Spun Sugar (background water), 
+Tangerine Tango (large fish), Spicy Mustard (small fish), Hunter Green (teapot).
 
-Rendering:
-  - Canvas: 600x600, black background.
-  - View box and world: x in [0, 600], y in [0, 600], z in [0, -100].
-  - All visible geometry lies in the z = -50 plane (Z_PLANE and PROJECTILE_Z).
-  - All drawing uses wireframe line segments.
-  - Color scheme:
-      * Water line (aqua) at y = 7 across the width.
-      * Tower (red) at the lower right; width 100, height 200.
-      * Launch pad (white) of length 50 at y = 450 attached to left wall.
-      * Projectiles (green): diamond = GLUT wire octahedron; teapot = GLUT teapot.
+Rendering and Geometry:
+drawFishBody scales the GLUT wireframe octahedron to represent the fish torso 
+(150×50×25 units for large fish, 50×20×10 for small).
+drawFishTail draws a triangular wireframe tail attached at the body’s tip.
+drawLargeFish / drawSmallFish compose the full fish model by translating to world 
+position and drawing the body and tail in correct orientation.
+drawTeapot positions a 50-unit Hunter Green wireframe teapot at (75, −400, −400).
+The view volume spans x,y  [−400, 400] and z  [−900, −100], camera at origin facing −z.
 
-Transforms and Sizes:
-  - Projectiles are centered at (cx, cy, -50) via glTranslatef.
-  - Diamond is uniformly scaled with glScalef(PROJECTILE_RADIUS) so its
-    overall size is 40 (radius = 20).
-  - Teapot is drawn with glutWireTeapot(PROJECTILE_RADIUS) which is about
-    40 units overall.
+Animation Logic:
+During each frame, Turn() checks if the large fish’s nose approaches a wall (|x| > 396 − half-width).
+ If so, current_state switches to Rotating. The fish then rotates ±5 per frame about its vertical (y)
+  axis through its center until rotate_accum reaches its target (0 or 180). Once complete, the state 
+  returns to Swimming, and linear translation (±5 units per frame) resumes in the opposite direction. 
+  The loop continues indefinitely until user exit.
 
-Animation and Physics:
-  - Start in READY: on-screen message prompts to choose gravity:
-      Press e for Earths gravity and m for Ganymedes
-  - Gravity selection (one-time, cannot change later):
-      * M or m -> Ganymede: gravity = -4.7 
-      * E or e -> Earth:    gravity = -32  
-  - After selecting gravity, state goes to RUNNING and first projectile appears
-    on the pad; it does not fall until the first H or J keypress sets launched to true.
-  - Vertical motion update each timer tick when RUNNING and launched:
-      y += v * dt + 0.5 * (-gravity) * dt^2
-      v += (-gravity) * dt
-
-Controls:
-  - H or h: move projectile left by 4 units and set launched to true.
-  - J or j: move projectile right by 4 units and set launched to true.
-
-End of Flight and Lifecycle:
-  - A projectile ends its flight immediately when any one occurs:
-      * Bottom tip reaches the water line (y = 7).
-      * Right tip reaches the right screen edge (x = 600).
-      * Tower collision check triggers.
-  - After a non-winning end, state goes to NEXT_PROJECTILE and the projectile is
-    hidden for 1 second. After cooldown_ready fires, a new projectile is
-    spawned on the launch pad (cx = 25, cy = 450 + radius, v = 0, launched = false)
-    and state returns to RUNNING.
-  - When tower_hit is true, display_func prints You Win and stops play.
-  - Program exits only via the window manager or default system exit.
-
-NOTES:
-  - The teapot Radius has been kind of weird for me to figure out
-    The spout and the handle seem to not be included
-    I thought about changing the radius but I decided to keep it 20 like the assignment says
-    If desired I can easily change the hit box to include the spout and handle
 */
 
 // Canvas & Colors 
@@ -120,8 +75,7 @@ constexpr GLfloat GREEN_B = 59.0f / 255.0f;
 
 
 //  Animation Tuning 
-constexpr unsigned TIMER_PERIOD_MS = 20; // ~50 FPS
-constexpr GLfloat STEP_PER_TICK = 4.0f;  // units per tick
+constexpr unsigned TIMER_PERIOD_MS = 50; // 20 fps
 
 enum Direction {
   Right = 0,
@@ -147,6 +101,8 @@ static float rotate_accum = 180.0f;
 
 static GLfloat fx = 0.0f;
 static GLfloat fy = 0.0f;
+static GLfloat change_x = 5.0f;
+static GLfloat change_deg = 5.0f;
 static constexpr GLfloat fz = -400.0f;
 //  Utility: draw a line 
 static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
@@ -156,7 +112,7 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
     glVertex3f(x2, y2, -400);
     glEnd();
 }
-
+// Draws a green wireframe teapot centered at (cx, cy, -400).
 static void drawTeapot(GLfloat cx, GLfloat cy)
 {
     glLoadIdentity();
@@ -166,18 +122,12 @@ static void drawTeapot(GLfloat cx, GLfloat cy)
     glLoadIdentity();
 }
 
-// Draw the wireframe octahedron (diamond) centered at (cx, cy, PROJECTILE_Z).
-// Uniformly scales by PROJECTILE_RADIUS to achieve size 40.
+// Draws the octahedral fish body, scaling to specified size (Big or Small).
 static void drawFishBody(Size s)
 {   
-    GLfloat w = 75.0f;
-    GLfloat h = 25.0f;
-    GLfloat d = 12.5f;
-    if(s == Small){
-        w = 25.0f;
-        h = 10.0f;
-        d = 5.0f;
-    }
+    GLfloat w = (s == Big) ? 75.0f: 25.0f;
+    GLfloat h = (s == Big) ? 25.0f: 10.0f;
+    GLfloat d = (s == Big) ? 12.5f: 5.0f;
     //glLoadIdentity();
     //glTranslatef(x, y, z);
     glScalef(w, h, d);
@@ -185,44 +135,9 @@ static void drawFishBody(Size s)
     glScalef(1/w, 1/h, 1/d);
     //glLoadIdentity();
 }
-
+// Draws a triangular wireframe tail attached to the fish body.
 static void drawFishTail(GLfloat x, GLfloat y, Size s, Direction di)
 {
-    /*GLfloat x2;
-    if(s == Small)
-    {
-        if(di == Right){
-          x-= 25;
-          x2 = x-7;
-        }
-        else{
-          x+= 25;
-          x2 = x+7;
-        }
-        //glLoadIdentity();
-        glBegin(GL_LINE_LOOP);
-        glVertex3f(x,y,-400.0f);
-        glVertex3f(x2,y-3.5,-400.0f);
-        glVertex3f(x2,y+3.5,-400.0f);
-        glEnd();
-    }
-    else
-    {
-        if(di == Right){
-          x-= 75;
-          x2 = x-20;
-        }
-        else{
-          x+= 75;
-          x2 = x+20;
-        }
-        //glLoadIdentity();
-        glBegin(GL_LINE_LOOP);
-        glVertex3f(x,y,-400.0f);
-        glVertex3f(x2,y-10,-400.0f);
-        glVertex3f(x2,y+10,-400.0f);
-        glEnd();
-    }*/
     const GLfloat w  = (s == Small) ? 25.0f : 75.0f;  // half body width
     const GLfloat th = (s == Small) ? 3.5f  : 10.0f;  // tail half-height
     const GLfloat tx = (s == Small) ? 7.0f  : 20.0f;  // tail length
@@ -235,17 +150,18 @@ static void drawFishTail(GLfloat x, GLfloat y, Size s, Direction di)
     glEnd();
     
 }
-
+// Draws the small stationary fish using its body and tail at a fixed position.
 static void drawSmallFish(GLfloat x, GLfloat y, GLfloat z, Direction d) {
   glPushMatrix();
   glTranslatef(x, y, z);
+  glRotatef(180.0f, 0.0f, 1.0f, 0.0f);
   drawFishBody(Small);
   //glLoadIdentity();
   drawFishTail(x, y, Small, d);
   glPopMatrix();
 
 }
-
+// Draws the large moving fish, applying translation and rotation for animation.
 static void drawLargeFish(GLfloat x, GLfloat y, GLfloat z, Direction d, GLfloat rot) {
   glPushMatrix();
   glTranslatef(x, y, z);
@@ -258,20 +174,7 @@ static void drawLargeFish(GLfloat x, GLfloat y, GLfloat z, Direction d, GLfloat 
 }
 
 
-//  Utility: draw a bitmap string centered at (cx,cy) on Z_PLANE
-static void drawBitmapStringCenter(const char* s, void* font, GLfloat cx, GLfloat cy)
-{
-    int w = 0; 
-    for (const char* p = s; *p; ++p){
-        w += glutBitmapWidth(font, *p);
-    }
-    glRasterPos3f(cx - w*0.5f, cy, -400.0f);
-    for (const char* p = s; *p; ++p) {
-        glutBitmapCharacter(font, *p);
-    }
-}
-
-
+// Detects wall proximity and triggers a turning state when the fish nears an edge.
 static void Turn(){
     if(current_state != Swimming) return;
     if(fx+75 >= 396.0f || fx-75 <= -396.0f){
@@ -287,9 +190,7 @@ static void Turn(){
 
 
 
-
-// Timer callback driving the animation at ~20 ms intervals.
-
+// Timer callback that updates the display periodically for animation.
 static void timer_func(int /*value*/)
 {
     if(current_state == Done){
@@ -301,7 +202,7 @@ static void timer_func(int /*value*/)
 
 
 
-
+// Main rendering function that updates fish position, handles rotation, and redraws the scene.
 static void display_func()
 {
     if(current_state == Done){
@@ -313,6 +214,7 @@ static void display_func()
     
     glLoadIdentity();
 
+    // I had to adjust teapot position to make it be on the screen correctly
     glColor3f(GREEN_R, GREEN_G, GREEN_B);
     drawTeapot(75.0f, -360.0f);
 
@@ -324,27 +226,35 @@ static void display_func()
       if (fabsf(rotate_accum - target) <= 0.01f) {
           rotate_accum = target;
           current_state = Swimming;
-          fx += (current_direction == Right) ? 5.0f : -5.0f;  // nudge off wall
+          fx += (current_direction == Right) ? change_x : -change_x;  // nudge off wall
       } else {
-          rotate_accum += (rotate_accum < target) ? 5.0f : -5.0f; 
+          rotate_accum += (rotate_accum < target) ? change_deg : -change_deg; 
       }
     } else {
-      fx += (current_direction == Right) ? 5.0f : -5.0f;
+      fx += (current_direction == Right) ? change_x : -change_x;
     }
     drawLargeFish(fx, fy, fz, current_direction, rotate_accum);
     glColor3f(SPICY_R, SPICY_G, SPICY_B);
-    drawSmallFish(-325.0f, -350.0f, -400.0f, Right);
+    drawSmallFish(-325.0f, -350.0f, -400.0f, Left);
     
     glutSwapBuffers(); // double buffer
 }
 
 
 
-
+// Handles keyboard input (currently only Q/q to quit the simulation).
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
     if(key == 'q' || key == 'Q'){
         current_state = Done;
+        return;
+    }
+    if(key == 'd' || key == 'D'){
+        change_deg = 10.0f;
+        return;
+    }
+    if(key == 'u' || key == 'U'){
+        change_deg = 5.0f;
         return;
     }
     glutPostRedisplay();
@@ -352,9 +262,7 @@ static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 }
 
 
-
-
-//  Program entry: initializes GLUT/GL, registers callbacks, and enters main loop.
+// Initializes GLUT, registers callbacks, and starts the main animation loop.
 int main(int argc, char **argv)
 {
     glutInit(&argc, argv);
