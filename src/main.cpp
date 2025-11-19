@@ -74,17 +74,23 @@ static shape current_shape = square;
 
 static state current_state = ready;
 
+static float rotation_angle = 0.0f;     // degrees
+static bool  spinning = false;   // currently rotating or not
+
 static GLfloat sx = 0.0f;
 static GLfloat sy = 0.0f;
+
+static bool use_perspective = false;  // start in orthographic
 
 
 static int size = 50;
 //  Animation Tuning 
-constexpr unsigned TIMER_PERIOD_MS = 50; // 20 fps
+constexpr unsigned TIMER_PERIOD_MS = 1000 / 24; // 24 ish fps
 
+constexpr int FRAMES_PER_SECOND = 24;  // with 50 ms → 20
+static int still_frames = 0;
 
-
-
+constexpr float ANGLE_STEP = 540.0f / FRAMES_PER_SECOND;
 
 
 //  Utility: draw a line 
@@ -96,12 +102,19 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
     glEnd();
 }
 
-static void drawCircle(GLfloat cx, GLfloat cy, GLfloat size)
+static void draw2DCircle(GLfloat cx, GLfloat cy, GLfloat radius)
 {
-    glPushMatrix();
-    glTranslatef(cx, cy, -400.0f);  
-    glutWireSphere(size / 2.0f, 30, 20);
-    glPopMatrix();
+    const int SEGMENTS = 40;  // Smooth enough for a small UI icon
+
+    glBegin(GL_LINE_LOOP);
+    for (int i = 0; i < SEGMENTS; i++)
+    {
+        float theta = 2.0f * 3.1415926f * (float)i / (float)SEGMENTS;
+        float x = radius * cosf(theta);
+        float y = radius * sinf(theta);
+        glVertex3f(cx + x, cy + y, -400.0f);  // same z-plane as your UI
+    }
+    glEnd();
 }
 
 static void drawSquare(GLfloat x, GLfloat y ,GLfloat s){
@@ -122,7 +135,7 @@ static void drawSquareIcon(){
 
 static void drawCircleIcon(){
   drawSquare(-345, 375, 25);
-  drawCircle(-345, 375, 15);
+  draw2DCircle(-345, 375, 7.5f);
 }
 
 static void drawPlusIcon(){
@@ -136,6 +149,22 @@ static void drawMinusIcon(){
   line2(-355, -375, -335, -375);
   
 }
+static void drawCube(){
+  glPushMatrix();
+  glTranslatef(sx, sy, -400.0f);
+  glRotatef(rotation_angle, 0.0f, 1.0f, 0.0f);
+  glutSolidCube(size); 
+  glPopMatrix();
+}
+
+static void drawSolidSphere(){
+  glPushMatrix();
+  glTranslatef(sx, sy, -400.0f);
+  glRotatef(rotation_angle, 0.0f, 1.0f, 0.0f);
+  glutSolidSphere(size / 2.0f, 30, 20);
+  glPopMatrix();
+}
+
 
 
 bool insideIcon(float mx, float my, float x, float y, float size)
@@ -161,12 +190,30 @@ void mouse_func(int button, int state, int mx, int my)
     if(insideIcon(wx, wy, -375 - 12.5f, 375 - 12.5f, 25)) { 
       current_shape = square;
       current_state = clicked;
+
+      sx = 0.0;
+      sy = 0.0;
+      size = 50.0f;
+
+       // reset rotation 1 second still, then spin
+      rotation_angle = 0.0f;
+      spinning       = false;
+      still_frames   = FRAMES_PER_SECOND;
       return;
     }
     // sphere
     if(insideIcon(wx, wy, -345 - 12.5f, 375 - 12.5f, 25)) {
       current_shape = sphere;
       current_state = clicked;
+
+      sx = 0.0;
+      sy = 0.0;
+      size = 50.0f;
+
+      // reset rotation 1 second still, then spin
+      rotation_angle = 0.0f;
+      spinning       = false;
+      still_frames   = FRAMES_PER_SECOND;
       return;
     }
     //plus
@@ -190,9 +237,22 @@ void mouse_func(int button, int state, int mx, int my)
 // Timer callback that updates the display periodically for animation.
 static void timer_func(int /*value*/)
 {
-    //if(current_state == Done){
-    //  return;
-    //}
+    if (current_state == clicked) {
+        if (still_frames > 0) {
+            // still phase do nothing but count down
+            --still_frames;
+            if (still_frames == 0) {
+                spinning = true;  // start rotating after 1 second
+            }
+        } else if (spinning) {
+            // rotating phase
+            rotation_angle += ANGLE_STEP;
+            if (rotation_angle >= 360.0f) {
+                rotation_angle -= 360.0f;
+            }
+        }
+    }
+
     glutPostRedisplay();
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 }
@@ -215,13 +275,38 @@ static void display_func()
     drawMinusIcon();
 
     if(current_shape == square && current_state == clicked){
-      drawSquare(sx,sy,size);
+      
+      drawCube();
+      
     }
     else if(current_shape == sphere && current_state == clicked){
-      drawCircle(sx,sy,size);
+      
+      drawSolidSphere();
+      
     }
     
     glutSwapBuffers(); // double buffer
+}
+
+static void setProjection()
+{
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+
+    if (!use_perspective) {
+        // Orthographic view matching my_3d_projection:
+        glOrtho(-400.0, 400.0,
+                -400.0, 400.0,
+                100.0, 900.0);
+    } else {
+        // At z=-400, edges are scaled by (400/100)=4 => x,y in [-400,400].
+        glFrustum(-100.0, 100.0,
+                  -100.0, 100.0,   
+                  100.0, 900.0);   
+    }
+
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
 }
 
 
@@ -229,10 +314,17 @@ static void display_func()
 // Handles keyboard input (currently only Q/q to quit the simulation).
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
-    if(key == 'p' || key == 'P'){
+    if (key == 'p' || key == 'P') {
+        use_perspective = !use_perspective;  // toggle mode
+        setProjection();
+        glutPostRedisplay();
         return;
     }
-    
+
+    if (key == 'q' || key == 'Q') {
+        std::exit(0);
+    }
+
     glutPostRedisplay();
     
 }
@@ -243,7 +335,7 @@ int main(int argc, char **argv)
 {
     glutInit(&argc, argv);
     my_setup(canvas_Width, canvas_Height, canvas_Name);
-
+    setProjection();
     
     glutDisplayFunc(display_func);
     glutKeyboardFunc(keyboard_func);
