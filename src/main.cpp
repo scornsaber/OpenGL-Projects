@@ -7,45 +7,45 @@
 #include <GL/freeglut.h>
 #include "OpenGL445Setup-2025.h"
 /*
-Extra credit for doubling rotation rate completed. Input 'd' to double 'u' to undo
 Main Idea:
-Render an animated aquarium scene in orthographic projection where a large orange fish 
-continuously swims between the tank walls, rotating 180 each time it reaches an edge, 
-and a smaller yellow fish and green teapot serve as static decorations. All motion and 
-transformations are handled using glTranslatef, glScalef, and glRotatef rather than absolute world coordinates.
+The program implements a small interactive 3D model builder using legacy OpenGL and GLUT.
+The user selects either a cube or a sphere from two wireframe icons, and the chosen shape
+appears at the center of the canvas at size 50. The shape remains still for one second
+and then rotates at a constant rate of approximately 1.5 revolutions per second. All
+placement and animation use MODELVIEW transforms (glTranslatef and glRotatef), never
+absolute coordinates.
 
 GLUT Callbacks:
-display_func: Clears the canvas each frame, updates position and rotation states,
- and redraws the entire tank. Draws the large fish, small fish, and teapot using current global state.
-timer_func: Drives animation at fixed intervals,
- re-arming itself each tick to maintain continuous motion and trigger redisplay.
-keyboard_func: Handles quit control (Q / q) to terminate the simulation cleanly.
-  Input 'd' to double rotation rate 'u' to undo.
+display_func clears the canvas, draws the UI icons without lighting, then draws the
+active shape with lighting enabled. mouse_func handles all left clicks: selecting icons,
+changing size by plus or minus icons, or repositioning the shape by clicking elsewhere.
+keyboard_func toggles orthographic and perspective viewing with P.timer_func runs at 24 Hz,
+managing the still period and advancing the rotation angle once spinning begins.
 
 Data and Global State:
-current_direction: {Left, Right} — determines swim direction.
-current_state: {Swimming, Rotating, Done} — manages behavior phase.
-fx, fy, fz: position of the large fish torso center (in z = −400 plane).
-rotate_accum: cumulative rotation angle (0 <--> 180) for smooth turning animation.
-Color constants use PANTONE references for realism: Spun Sugar (background water), 
-Tangerine Tango (large fish), Spicy Mustard (small fish), Hunter Green (teapot).
+current_shape (cube or sphere), current_state (ready or clicked), sx and sy for the
+centroid, size in units (5 to 200), rotation_angle, spinning flag, still_frames counter
+for the one second delay, and use_perspective for projection mode.
 
-Rendering and Geometry:
-drawFishBody scales the GLUT wireframe octahedron to represent the fish torso 
-(150x50x25 units for large fish, 50x20x10 for small).
-drawFishTail draws a triangular wireframe tail attached at the body’s tip.
-drawLargeFish / drawSmallFish compose the full fish model by translating to world 
-position and drawing the body and tail in correct orientation.
-drawTeapot positions a 50-unit Hunter Green wireframe teapot at (75, -400, -400).
-The view volume spans x,y  [-400, 400] and z  [-900, -100], camera at origin facing -z.
+Rendering and Lighting:
+Canvas is 800 by 800 with a black background. Icons are simple 2D wireframes drawn at z = -400.
+The plus icon is green and the minus icon is yellow; all others are white. Shapes are solid
+GLUT primitives rendered with fixed-function Phong/Blinn-Phong lighting.
+A white point light is fixed at the world origin. Material is copper based on figma values
+(198, 131, 70) with low ambient, strong diffuse, and moderate specular for a visible highlight.
+Lighting is disabled during UI drawing and enabled only when rendering the 3D shape.
 
-Animation Logic:
-During each frame, Turn() checks if the large fish’s nose approaches a wall (|x| > 396 - half-width).
- If so, current_state switches to Rotating. The fish then rotates +=5 per frame about its vertical (y)
-  axis through its center until rotate_accum reaches its target (0 or 180). Once complete, the state 
-  returns to Swimming, and linear translation (+=5 units per frame) resumes in the opposite direction. 
-  The loop continues indefinitely until user exit.
+Viewing and Projection:
+Default view is orthographic with x and y in [-400, 400] and z from 0 to -800.
+The shape always lies in the plane z = -400. Pressing P switches to a perspective frustum
+with the viewpoint at the origin looking down negative z, sized so the cross section at z = -400
+matches the 800 by 800 view. Switching modes rebuilds the projection matrix and reloads MODELVIEW.
 
+Transforms and Animation:
+Shapes are positioned using glTranslatef(sx, sy, -400) and rotated about the vertical axis
+using glRotatef(rotation_angle, 0, 1, 0). Rotation increments are uniform each frame to
+maintain a constant 1.5 rps spin. The timer controls the still period and rotation updates,
+and double buffering ensures smooth animation.
 */
 
 // Canvas & Colors 
@@ -53,10 +53,6 @@ During each frame, Turn() checks if the large fish’s nose approaches a wall (|
 #define canvas_Height 800
 char canvas_Name[] = "CS 445 Shape Generator";
 
-// Brand black (44,42,41) normalized
-constexpr GLfloat BRAND_R = 44.0f / 255.0f;
-constexpr GLfloat BRAND_G = 42.0f / 255.0f;
-constexpr GLfloat BRAND_B = 41.0f / 255.0f;
 
 // State enums
 
@@ -101,10 +97,11 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
     glVertex3f(x2, y2, -400);
     glEnd();
 }
-
+// Draws a 2D wireframe circle used for the UI icon. I at first just used a sphere but 
+// was not sure if that was ok
 static void draw2DCircle(GLfloat cx, GLfloat cy, GLfloat radius)
 {
-    const int SEGMENTS = 40;  // Smooth enough for a small UI icon
+    const int SEGMENTS = 40; 
 
     glBegin(GL_LINE_LOOP);
     for (int i = 0; i < SEGMENTS; i++)
@@ -112,11 +109,11 @@ static void draw2DCircle(GLfloat cx, GLfloat cy, GLfloat radius)
         float theta = 2.0f * 3.1415926f * (float)i / (float)SEGMENTS;
         float x = radius * cosf(theta);
         float y = radius * sinf(theta);
-        glVertex3f(cx + x, cy + y, -400.0f);  // same z-plane as your UI
+        glVertex3f(cx + x, cy + y, -400.0f);
     }
     glEnd();
 }
-
+// Draws a 2D wireframe square centered at (x, y).
 static void drawSquare(GLfloat x, GLfloat y ,GLfloat s){
   s=s/2;
   line2(x+s, y+s, x - s, y+s);
@@ -127,19 +124,19 @@ static void drawSquare(GLfloat x, GLfloat y ,GLfloat s){
 
 }
 
-
+// Renders the square selection icon in the top-left corner.
 static void drawSquareIcon(){
   glColor3f(1.0f, 1.0f, 1.0f);
   drawSquare(-375, 375, 25);
   drawSquare(-375, 375, 15);
 }
-
+// Renders the sphere selection icon in the top-left corner.
 static void drawCircleIcon(){
   glColor3f(1.0f, 1.0f, 1.0f);
   drawSquare(-345, 375, 25);
   draw2DCircle(-345, 375, 7.5f);
 }
-
+// Renders the green plus icon for increasing size.
 static void drawPlusIcon(){
   glColor3f(1.0f, 1.0f, 1.0f);
   drawSquare(-375, -375, 25);
@@ -148,7 +145,7 @@ static void drawPlusIcon(){
   line2(-385, -375, -365, -375);
   line2(-375, -365, -375, -385);
 }
-
+// Renders the yellow minus icon for decreasing size.
 static void drawMinusIcon(){
   glColor3f(1.0f, 1.0f, 1.0f);
   drawSquare(-345, -375, 25);
@@ -156,6 +153,8 @@ static void drawMinusIcon(){
   line2(-355, -375, -335, -375);
   
 }
+
+// Draws the lit, rotating solid cube at its world position.
 static void drawCube(){
   glPushMatrix();
   glTranslatef(sx, sy, -400.0f);
@@ -164,6 +163,7 @@ static void drawCube(){
   glPopMatrix();
 }
 
+// Draws the lit, rotating solid sphere at its world position.
 static void drawSolidSphere(){
   glPushMatrix();
   glTranslatef(sx, sy, -400.0f);
@@ -173,13 +173,13 @@ static void drawSolidSphere(){
 }
 
 
-
+// Returns true if a mouse click lies within an icon box.
 bool insideIcon(float mx, float my, float x, float y, float size)
 {
     return (mx >= x && mx <= x + size &&
             my >= y && my <= y + size);
 }
-
+// Handles all left-button clicks for selecting and moving shapes.
 void mouse_func(int button, int state, int mx, int my)
 {
     // Only handle left-button press
@@ -241,7 +241,7 @@ void mouse_func(int button, int state, int mx, int my)
 }
 
 
-// Timer callback that updates the display periodically for animation.
+// Advances frame timing, stillness countdown, and rotation updates.
 static void timer_func(int /*value*/)
 {
     if (current_state == clicked) {
@@ -263,7 +263,7 @@ static void timer_func(int /*value*/)
     glutPostRedisplay();
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 }
-
+// Initializes fixed-function Phong lighting and copper material.
 static void initLighting()
 {
     // Enable depth testing so nearer fragments overwrite farther ones
@@ -307,7 +307,7 @@ static void initLighting()
         1.0f
     };
 
-    // Specular bright, slightly gold-ish highlight
+    // Specular bright, slightly goldish highlight
     GLfloat mat_specular[] = {
         copper_R * 0.9f + 0.1f,
         copper_G * 0.9f + 0.1f,
@@ -324,7 +324,7 @@ static void initLighting()
 }
 
 
-// Main rendering function that updates fish position, handles rotation, and redraws the scene.
+// Clears the canvas, draws UI, and renders the active shape.
 static void display_func()
 {
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
@@ -354,7 +354,7 @@ static void display_func()
 
     glutSwapBuffers();
 }
-
+ // Builds either orthographic or perspective projection matrices.
 static void setProjection()
 {
     glMatrixMode(GL_PROJECTION);
@@ -377,8 +377,7 @@ static void setProjection()
 }
 
 
-
-// Handles keyboard input (currently only Q/q to quit the simulation).
+// Handles P for projection toggle
 static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
 {
     if (key == 'p' || key == 'P') {
@@ -387,11 +386,6 @@ static void keyboard_func(unsigned char key, int /*x*/, int /*y*/)
         glutPostRedisplay();
         return;
     }
-
-    if (key == 'q' || key == 'Q') {
-        std::exit(0);
-    }
-
     glutPostRedisplay();
     
 }
