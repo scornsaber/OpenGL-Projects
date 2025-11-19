@@ -85,9 +85,9 @@ static bool use_perspective = false;  // start in orthographic
 
 static int size = 50;
 //  Animation Tuning 
-constexpr unsigned TIMER_PERIOD_MS = 1000 / 24; // 24 ish fps
+constexpr unsigned TIMER_PERIOD_MS = 1000 / 24; 
 
-constexpr int FRAMES_PER_SECOND = 24;  // with 50 ms → 20
+constexpr int FRAMES_PER_SECOND = 24;  
 static int still_frames = 0;
 
 constexpr float ANGLE_STEP = 540.0f / FRAMES_PER_SECOND;
@@ -129,23 +129,30 @@ static void drawSquare(GLfloat x, GLfloat y ,GLfloat s){
 
 
 static void drawSquareIcon(){
+  glColor3f(1.0f, 1.0f, 1.0f);
   drawSquare(-375, 375, 25);
   drawSquare(-375, 375, 15);
 }
 
 static void drawCircleIcon(){
+  glColor3f(1.0f, 1.0f, 1.0f);
   drawSquare(-345, 375, 25);
   draw2DCircle(-345, 375, 7.5f);
 }
 
 static void drawPlusIcon(){
+  glColor3f(1.0f, 1.0f, 1.0f);
   drawSquare(-375, -375, 25);
+
+  glColor3f(0.0f, 1.0f, 0.0f);
   line2(-385, -375, -365, -375);
   line2(-375, -365, -375, -385);
 }
 
 static void drawMinusIcon(){
+  glColor3f(1.0f, 1.0f, 1.0f);
   drawSquare(-345, -375, 25);
+  glColor3f(1.0f, 1.0f, 0.0f);
   line2(-355, -375, -335, -375);
   
 }
@@ -257,35 +264,95 @@ static void timer_func(int /*value*/)
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 }
 
+static void initLighting()
+{
+    // Enable depth testing so nearer fragments overwrite farther ones
+    glEnable(GL_DEPTH_TEST);
+
+    // Enable fixed-function lighting
+    glEnable(GL_LIGHTING);
+    glEnable(GL_LIGHT0);
+    glEnable(GL_NORMALIZE);
+
+    // White point light at the origin
+    GLfloat light_pos[]     = { 0.0f, 0.0f, 0.0f, 1.0f };  
+    GLfloat light_ambient[] = { 0.1f, 0.1f, 0.1f, 1.0f };
+    GLfloat light_diffuse[] = { 1.0f, 1.0f, 1.0f, 1.0f };
+    GLfloat light_spec[]    = { 1.0f, 1.0f, 1.0f, 1.0f };
+
+    glLightfv(GL_LIGHT0, GL_POSITION, light_pos);
+    glLightfv(GL_LIGHT0, GL_AMBIENT,  light_ambient);
+    glLightfv(GL_LIGHT0, GL_DIFFUSE,  light_diffuse);
+    glLightfv(GL_LIGHT0, GL_SPECULAR, light_spec);
+
+    // Copper material (ambient small, strong diffuse, moderate specular)
+   
+    GLfloat copper_R = 198.0f / 255.0f;   //  0.776
+    GLfloat copper_G = 131.0f / 255.0f;   //  0.514
+    GLfloat copper_B =  70.0f / 255.0f;   //  0.274
+
+    // Ambient darker version of copper
+    GLfloat mat_ambient[] = {
+        copper_R * 0.3f,
+        copper_G * 0.3f,
+        copper_B * 0.3f,
+        1.0f
+    };
+
+    // Diffuse
+    GLfloat mat_diffuse[] = {
+        copper_R,
+        copper_G,
+        copper_B,
+        1.0f
+    };
+
+    // Specular bright, slightly gold-ish highlight
+    GLfloat mat_specular[] = {
+        copper_R * 0.9f + 0.1f,
+        copper_G * 0.9f + 0.1f,
+        copper_B * 0.9f + 0.1f,
+        1.0f
+    };
+
+    GLfloat mat_shine[] = { 45.0f };
+
+    glMaterialfv(GL_FRONT, GL_AMBIENT,   mat_ambient);
+    glMaterialfv(GL_FRONT, GL_DIFFUSE,   mat_diffuse);
+    glMaterialfv(GL_FRONT, GL_SPECULAR,  mat_specular);
+    glMaterialfv(GL_FRONT, GL_SHININESS, mat_shine);
+}
 
 
 // Main rendering function that updates fish position, handles rotation, and redraws the scene.
 static void display_func()
 {
-    /*if(current_state == Done){
-      return;
-    }*/
-    glClearColor(BRAND_R, BRAND_G, BRAND_B, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glColor3f(1.0f, 1.0f, 1.0f);
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+
+    // 2D UI no lighting
+    glDisable(GL_LIGHTING);
+
     drawSquareIcon();
     drawCircleIcon();
     drawPlusIcon();
     drawMinusIcon();
 
-    if(current_shape == square && current_state == clicked){
-      
-      drawCube();
-      
+    // 3D shapes lighting ON 
+    if (current_state == clicked) {
+        glEnable(GL_LIGHTING);  // uses light & material from initLighting()
+
+        if (current_shape == square) {
+            drawCube();
+        } else if (current_shape == sphere) {
+            drawSolidSphere();
+        }
     }
-    else if(current_shape == sphere && current_state == clicked){
-      
-      drawSolidSphere();
-      
-    }
-    
-    glutSwapBuffers(); // double buffer
+
+    glutSwapBuffers();
 }
 
 static void setProjection()
@@ -336,6 +403,7 @@ int main(int argc, char **argv)
     glutInit(&argc, argv);
     my_setup(canvas_Width, canvas_Height, canvas_Name);
     setProjection();
+    initLighting();
     
     glutDisplayFunc(display_func);
     glutKeyboardFunc(keyboard_func);
