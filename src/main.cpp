@@ -53,9 +53,32 @@ During each frame, Turn() checks if the large fish’s nose approaches a wall (|
 #define canvas_Height 800
 char canvas_Name[] = "CS 445 Shape Generator";
 
+// Brand black (44,42,41) normalized
+constexpr GLfloat BRAND_R = 44.0f / 255.0f;
+constexpr GLfloat BRAND_G = 42.0f / 255.0f;
+constexpr GLfloat BRAND_B = 41.0f / 255.0f;
+
+// State enums
+
+enum state{
+  ready,
+  clicked
+};
+
+enum shape{
+  square,
+  sphere
+};
+
+static shape current_shape = square;
+
+static state current_state = ready;
+
+static GLfloat sx = 0.0f;
+static GLfloat sy = 0.0f;
 
 
-
+static int size = 50;
 //  Animation Tuning 
 constexpr unsigned TIMER_PERIOD_MS = 50; // 20 fps
 
@@ -73,9 +96,95 @@ static inline void line2(GLfloat x1, GLfloat y1, GLfloat x2, GLfloat y2)
     glEnd();
 }
 
+static void drawCircle(GLfloat cx, GLfloat cy, GLfloat size)
+{
+    glPushMatrix();
+    glTranslatef(cx, cy, -400.0f);  
+    glutWireSphere(size / 2.0f, 30, 20);
+    glPopMatrix();
+}
 
-// Draws the octahedral fish body, scaling to specified size (Big or Small).
+static void drawSquare(GLfloat x, GLfloat y ,GLfloat s){
+  s=s/2;
+  line2(x+s, y+s, x - s, y+s);
+  line2(x+s, y-s, x - s, y-s);
 
+  line2(x+s, y+s, x + s, y-s);
+  line2(x-s, y+s, x - s, y-s);
+
+}
+
+
+static void drawSquareIcon(){
+  drawSquare(-375, 375, 25);
+  drawSquare(-375, 375, 15);
+}
+
+static void drawCircleIcon(){
+  drawSquare(-345, 375, 25);
+  drawCircle(-345, 375, 15);
+}
+
+static void drawPlusIcon(){
+  drawSquare(-375, -375, 25);
+  line2(-385, -375, -365, -375);
+  line2(-375, -365, -375, -385);
+}
+
+static void drawMinusIcon(){
+  drawSquare(-345, -375, 25);
+  line2(-355, -375, -335, -375);
+  
+}
+
+
+bool insideIcon(float mx, float my, float x, float y, float size)
+{
+    return (mx >= x && mx <= x + size &&
+            my >= y && my <= y + size);
+}
+
+void mouse_func(int button, int state, int mx, int my)
+{
+    // Only handle left-button press
+    if (button != GLUT_LEFT_BUTTON || state != GLUT_DOWN)
+        return;
+
+    
+    // Convert GLUT (origin top-left) OpenGL (origin bottom-left)
+    int my_flipped = canvas_Height - my;
+
+    float wx = mx - canvas_Width  / 2.0f;
+    float wy = my_flipped - canvas_Height / 2.0f;
+
+    // square
+    if(insideIcon(wx, wy, -375 - 12.5f, 375 - 12.5f, 25)) { 
+      current_shape = square;
+      current_state = clicked;
+      return;
+    }
+    // sphere
+    if(insideIcon(wx, wy, -345 - 12.5f, 375 - 12.5f, 25)) {
+      current_shape = sphere;
+      current_state = clicked;
+      return;
+    }
+    //plus
+    if(insideIcon(wx, wy, -375 - 12.5f, -375 - 12.5f, 25)) {
+      size+=5;
+      if(size>200){size = 200;}
+      return;
+    }
+    //minus
+    if(insideIcon(wx, wy, -345 - 12.5f, -375 - 12.5f, 25)) {
+      size-=5;
+      if(size<5){size = 5;}
+      return;
+    }
+    sx = wx;
+    sy = wy;
+    glutPostRedisplay();
+}
 
 
 // Timer callback that updates the display periodically for animation.
@@ -93,13 +202,24 @@ static void timer_func(int /*value*/)
 // Main rendering function that updates fish position, handles rotation, and redraws the scene.
 static void display_func()
 {
-    if(current_state == Done){
+    /*if(current_state == Done){
       return;
-    }
+    }*/
     glClearColor(BRAND_R, BRAND_G, BRAND_B, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
-    
+    glColor3f(1.0f, 1.0f, 1.0f);
+    drawSquareIcon();
+    drawCircleIcon();
+    drawPlusIcon();
+    drawMinusIcon();
+
+    if(current_shape == square && current_state == clicked){
+      drawSquare(sx,sy,size);
+    }
+    else if(current_shape == sphere && current_state == clicked){
+      drawCircle(sx,sy,size);
+    }
     
     glutSwapBuffers(); // double buffer
 }
@@ -127,6 +247,7 @@ int main(int argc, char **argv)
     
     glutDisplayFunc(display_func);
     glutKeyboardFunc(keyboard_func);
+    glutMouseFunc(mouse_func);
     glutTimerFunc(TIMER_PERIOD_MS, timer_func, 0);
 
     glutMainLoop();
